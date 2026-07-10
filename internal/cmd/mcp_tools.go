@@ -25,11 +25,32 @@ func mcpAllTools() []mcpToolSpec {
 		mcpCalendarEventsTool(),
 		mcpDocsWriteTool(),
 		mcpSheetsUpdateRangeTool(),
+		mcpGmailDraftsCreateTool(),
+		mcpDriveDownloadTool(),
+		mcpDriveMoveTool(),
+		mcpDriveRenameTool(),
+		mcpCalendarEditTool(),
+		mcpDocsCreateTool(),
+		mcpSheetsCreateTool(),
+		mcpSheetsAppendTool(),
 		mcpGmailSendTool(),
 		mcpDriveUploadTool(),
 		mcpDriveMkdirTool(),
 		mcpCalendarCreateTool(),
+		mcpSheetsClearTool(),
 	}
+}
+
+// mcpAttachArgs turns a comma-separated attachment string into repeated
+// --attach flags (trimming blanks). Shared by gmail_send and gmail_drafts_create.
+func mcpAttachArgs(raw string) []string {
+	var out []string
+	for _, path := range strings.Split(raw, ",") {
+		if path = strings.TrimSpace(path); path != "" {
+			out = append(out, "--attach", path)
+		}
+	}
+	return out
 }
 
 // mcpCommandPathArgs splits a space-separated command path into argv tokens,
@@ -452,12 +473,271 @@ func mcpGmailSendTool() mcpToolSpec {
 			if from := strings.TrimSpace(req.GetString("from", "")); from != "" {
 				args = append(args, "--from", from)
 			}
-			for _, path := range strings.Split(req.GetString("attach", ""), ",") {
-				if path = strings.TrimSpace(path); path != "" {
-					args = append(args, "--attach", path)
+			args = append(args, mcpAttachArgs(req.GetString("attach", ""))...)
+			return args, nil
+		},
+	}
+}
+
+func mcpGmailDraftsCreateTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "gmail_drafts_create",
+		Service:     "gmail",
+		Risk:        mcpRiskWrite,
+		Description: "Create a Gmail draft (does NOT send). Requires --allow-write on the MCP server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("subject", mcp.Description("Subject line"), mcp.Required()),
+			mcp.WithString("body", mcp.Description("Plain-text body. Provide this or body_html (or both)."), mcp.DefaultString("")),
+			mcp.WithString("body_html", mcp.Description("HTML body (optional)"), mcp.DefaultString("")),
+			mcp.WithString("to", mcp.Description("Recipients (comma-separated; optional for a draft)")),
+			mcp.WithString("cc", mcp.Description("CC recipients (comma-separated)")),
+			mcp.WithString("bcc", mcp.Description("BCC recipients (comma-separated)")),
+			mcp.WithString("from", mcp.Description("Send-as address (must be a configured alias of the account)")),
+			mcp.WithString("attach", mcp.Description("Attachment local file path(s), comma-separated. Files are read from the machine running the server.")),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			subject, err := requireMCPString(req, "subject")
+			if err != nil {
+				return nil, err
+			}
+			body := strings.TrimSpace(req.GetString("body", ""))
+			bodyHTML := strings.TrimSpace(req.GetString("body_html", ""))
+			if body == "" && bodyHTML == "" {
+				return nil, fmt.Errorf("provide body or body_html")
+			}
+			args := []string{"gmail", "drafts", "create", "--subject", subject}
+			if body != "" {
+				args = append(args, "--body", body)
+			}
+			if bodyHTML != "" {
+				args = append(args, "--body-html", bodyHTML)
+			}
+			for _, pair := range [][2]string{{"to", "--to"}, {"cc", "--cc"}, {"bcc", "--bcc"}, {"from", "--from"}} {
+				if v := strings.TrimSpace(req.GetString(pair[0], "")); v != "" {
+					args = append(args, pair[1], v)
 				}
 			}
+			args = append(args, mcpAttachArgs(req.GetString("attach", ""))...)
 			return args, nil
+		},
+	}
+}
+
+func mcpDriveDownloadTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "drive_download",
+		Service:     "drive",
+		Risk:        mcpRiskWrite,
+		Description: "Download a Drive file to a local path. Requires --allow-write on the MCP server. Writes to the machine running the server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("file_id", mcp.Description("Drive file ID"), mcp.Required()),
+			mcp.WithString("out", mcp.Description("Output local file path (default: gogcli config dir)")),
+			mcp.WithString("format", mcp.Description("Export format for Google-native files, e.g. pdf, docx, xlsx, csv")),
+			mcp.WithBoolean("overwrite", mcp.Description("Overwrite an existing output file"), mcp.DefaultBool(false)),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			fileID, err := requireMCPString(req, "file_id")
+			if err != nil {
+				return nil, err
+			}
+			args := []string{"drive", "download"}
+			if out := strings.TrimSpace(req.GetString("out", "")); out != "" {
+				args = append(args, "--out", out)
+			}
+			if format := strings.TrimSpace(req.GetString("format", "")); format != "" {
+				args = append(args, "--format", format)
+			}
+			if req.GetBool("overwrite", false) {
+				args = append(args, "--overwrite")
+			}
+			return append(args, "--", fileID), nil
+		},
+	}
+}
+
+func mcpDriveMoveTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "drive_move",
+		Service:     "drive",
+		Risk:        mcpRiskWrite,
+		Description: "Move a Drive file to a different folder. Requires --allow-write on the MCP server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("file_id", mcp.Description("Drive file ID"), mcp.Required()),
+			mcp.WithString("parent", mcp.Description("New parent folder ID"), mcp.Required()),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			fileID, err := requireMCPString(req, "file_id")
+			if err != nil {
+				return nil, err
+			}
+			parent, err := requireMCPString(req, "parent")
+			if err != nil {
+				return nil, err
+			}
+			return []string{"drive", "move", "--parent", parent, "--", fileID}, nil
+		},
+	}
+}
+
+func mcpDriveRenameTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "drive_rename",
+		Service:     "drive",
+		Risk:        mcpRiskWrite,
+		Description: "Rename a Drive file. Requires --allow-write on the MCP server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("file_id", mcp.Description("Drive file ID"), mcp.Required()),
+			mcp.WithString("new_name", mcp.Description("New file name"), mcp.Required()),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			fileID, err := requireMCPString(req, "file_id")
+			if err != nil {
+				return nil, err
+			}
+			newName, err := requireMCPString(req, "new_name")
+			if err != nil {
+				return nil, err
+			}
+			return []string{"drive", "rename", "--", fileID, newName}, nil
+		},
+	}
+}
+
+func mcpCalendarEditTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "calendar_edit",
+		Service:     "calendar",
+		Risk:        mcpRiskWrite,
+		Description: "Edit an existing Calendar event. Requires --allow-write on the MCP server. If the event has attendees, Google may notify them of changes.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("event_id", mcp.Description("Event ID"), mcp.Required()),
+			mcp.WithString("calendar_id", mcp.Description("Calendar ID; default primary"), mcp.DefaultString("primary")),
+			mcp.WithString("summary", mcp.Description("New title/summary")),
+			mcp.WithString("from", mcp.Description("New start: RFC3339 or date")),
+			mcp.WithString("to", mcp.Description("New end: RFC3339 or date")),
+			mcp.WithString("description", mcp.Description("New description")),
+			mcp.WithString("location", mcp.Description("New location")),
+			mcp.WithString("add_attendees", mcp.Description("Comma-separated attendee emails to ADD (does not remove existing)")),
+			mcp.WithBoolean("all_day", mcp.Description("Make it an all-day event (use date-only from/to)"), mcp.DefaultBool(false)),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			eventID, err := requireMCPString(req, "event_id")
+			if err != nil {
+				return nil, err
+			}
+			calendarID := strings.TrimSpace(req.GetString("calendar_id", "primary"))
+			if calendarID == "" {
+				calendarID = "primary"
+			}
+			args := []string{"calendar", "edit"}
+			for _, pair := range [][2]string{{"summary", "--summary"}, {"from", "--from"}, {"to", "--to"}, {"description", "--description"}, {"location", "--location"}, {"add_attendees", "--add-attendee"}} {
+				if v := strings.TrimSpace(req.GetString(pair[0], "")); v != "" {
+					args = append(args, pair[1], v)
+				}
+			}
+			if req.GetBool("all_day", false) {
+				args = append(args, "--all-day")
+			}
+			return append(args, "--", calendarID, eventID), nil
+		},
+	}
+}
+
+func mcpDocsCreateTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "docs_create",
+		Service:     "docs",
+		Risk:        mcpRiskWrite,
+		Description: "Create a new Google Doc. Requires --allow-write on the MCP server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("title", mcp.Description("Document title"), mcp.Required()),
+			mcp.WithString("parent", mcp.Description("Destination folder ID")),
+			mcp.WithString("markdown_file", mcp.Description("Optional local Markdown file to import as initial content")),
+			mcp.WithBoolean("pageless", mcp.Description("Create in pageless mode"), mcp.DefaultBool(false)),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			title, err := requireMCPString(req, "title")
+			if err != nil {
+				return nil, err
+			}
+			args := []string{"docs", "create"}
+			if parent := strings.TrimSpace(req.GetString("parent", "")); parent != "" {
+				args = append(args, "--parent", parent)
+			}
+			if file := strings.TrimSpace(req.GetString("markdown_file", "")); file != "" {
+				args = append(args, "--file", file)
+			}
+			if req.GetBool("pageless", false) {
+				args = append(args, "--pageless")
+			}
+			return append(args, "--", title), nil
+		},
+	}
+}
+
+func mcpSheetsCreateTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "sheets_create",
+		Service:     "sheets",
+		Risk:        mcpRiskWrite,
+		Description: "Create a new Google Sheets spreadsheet. Requires --allow-write on the MCP server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("title", mcp.Description("Spreadsheet title"), mcp.Required()),
+			mcp.WithString("sheets", mcp.Description("Comma-separated tab names to create")),
+			mcp.WithString("parent", mcp.Description("Destination folder ID")),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			title, err := requireMCPString(req, "title")
+			if err != nil {
+				return nil, err
+			}
+			args := []string{"sheets", "create"}
+			if sheets := strings.TrimSpace(req.GetString("sheets", "")); sheets != "" {
+				args = append(args, "--sheets", sheets)
+			}
+			if parent := strings.TrimSpace(req.GetString("parent", "")); parent != "" {
+				args = append(args, "--parent", parent)
+			}
+			return append(args, "--", title), nil
+		},
+	}
+}
+
+func mcpSheetsAppendTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "sheets_append",
+		Service:     "sheets",
+		Risk:        mcpRiskWrite,
+		Description: "Append rows to a Google Sheets range (additive; does not overwrite existing rows by default). Requires --allow-write on the MCP server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("spreadsheet_id", mcp.Description("Google Sheets spreadsheet ID"), mcp.Required()),
+			mcp.WithString("range", mcp.Description("A1 notation or named range, e.g. Sheet1!A:C"), mcp.Required()),
+			mcp.WithString("values_json", mcp.Description("JSON 2D array of values"), mcp.Required()),
+			mcp.WithString("input", mcp.Description("Value input option"), mcp.Enum("RAW", "USER_ENTERED"), mcp.DefaultString("USER_ENTERED")),
+			mcp.WithString("insert", mcp.Description("Insert data option"), mcp.Enum("OVERWRITE", "INSERT_ROWS")),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			spreadsheetID, err := requireMCPString(req, "spreadsheet_id")
+			if err != nil {
+				return nil, err
+			}
+			rangeSpec, err := requireMCPString(req, "range")
+			if err != nil {
+				return nil, err
+			}
+			valuesJSON, err := requireMCPLiteralValuesJSON(req, "values_json")
+			if err != nil {
+				return nil, err
+			}
+			input := strings.TrimSpace(req.GetString("input", "USER_ENTERED"))
+			if input == "" {
+				input = "USER_ENTERED"
+			}
+			args := []string{"sheets", "append", "--values-json", valuesJSON, "--input", input}
+			if insert := strings.TrimSpace(req.GetString("insert", "")); insert != "" {
+				args = append(args, "--insert", insert)
+			}
+			return append(args, "--", spreadsheetID, rangeSpec), nil
 		},
 	}
 }
@@ -573,6 +853,30 @@ func mcpCalendarCreateTool() mcpToolSpec {
 				args = append(args, "--all-day")
 			}
 			return append(args, "--", calendarID), nil
+		},
+	}
+}
+
+func mcpSheetsClearTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "sheets_clear",
+		Service:     "sheets",
+		Risk:        mcpRiskSend,
+		Description: "Clear values from a Google Sheets range. DESTRUCTIVE (data loss). Requires --allow-send on the MCP server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("spreadsheet_id", mcp.Description("Google Sheets spreadsheet ID"), mcp.Required()),
+			mcp.WithString("range", mcp.Description("A1 notation or named range to clear, e.g. Sheet1!A1:B2"), mcp.Required()),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			spreadsheetID, err := requireMCPString(req, "spreadsheet_id")
+			if err != nil {
+				return nil, err
+			}
+			rangeSpec, err := requireMCPString(req, "range")
+			if err != nil {
+				return nil, err
+			}
+			return []string{"sheets", "clear", "--", spreadsheetID, rangeSpec}, nil
 		},
 	}
 }
