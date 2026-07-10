@@ -173,6 +173,79 @@ func TestMCPPolicyAccountResolutionPinsAliasAndRejectsUnverifiableIdentity(t *te
 	}
 }
 
+func TestMCPEnabledToolsAllowSendGating(t *testing.T) {
+	sendTools := []string{"gmail_send", "drive_upload", "drive_mkdir", "calendar_create"}
+
+	// Default: no send tools.
+	def := mcpEnabledTools(McpCmd{})
+	for _, name := range sendTools {
+		if hasMCPTool(def, name) {
+			t.Fatalf("%s should require --allow-send", name)
+		}
+	}
+
+	// --allow-write must NOT expose send tools (the key isolation property).
+	write := mcpEnabledTools(McpCmd{AllowWrite: true})
+	for _, name := range sendTools {
+		if hasMCPTool(write, name) {
+			t.Fatalf("%s leaked through --allow-write; must require --allow-send", name)
+		}
+	}
+
+	// --allow-send exposes all send tools but no write tools.
+	send := mcpEnabledTools(McpCmd{AllowSend: true})
+	for _, name := range sendTools {
+		if !hasMCPTool(send, name) {
+			t.Fatalf("%s should be enabled by --allow-send, got %#v", name, toolNames(send))
+		}
+	}
+	if hasMCPTool(send, "docs_write") || hasMCPTool(send, "sheets_update_range") {
+		t.Fatalf("write tools leaked through --allow-send: %#v", toolNames(send))
+	}
+
+	// --allow-send composes with --allow-tool.
+	filtered := mcpEnabledTools(McpCmd{AllowSend: true, AllowTool: []string{"gmail.*"}})
+	if !hasMCPTool(filtered, "gmail_send") {
+		t.Fatalf("gmail_send should survive gmail.* filter, got %#v", toolNames(filtered))
+	}
+	if hasMCPTool(filtered, "drive_upload") {
+		t.Fatalf("drive_upload leaked through gmail.* filter: %#v", toolNames(filtered))
+	}
+}
+
+func TestMCPGmailSendBuildArgs(t *testing.T) {
+	tool := findMCPTool(t, "gmail_send")
+	args, err := tool.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{
+			"to":      "a@example.com,b@example.com",
+			"subject": "Hello",
+			"body":    "Body text",
+			"cc":      "c@example.com",
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"gmail", "send", "--to", "a@example.com,b@example.com", "--subject", "Hello", "--body", "Body text", "--cc", "c@example.com"}
+	if strings.Join(args, "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("args = %#v, want %#v", args, want)
+	}
+
+	// Missing both body and body_html is rejected.
+	if _, err := tool.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{"to": "a@example.com", "subject": "Hi"},
+	}}); err == nil {
+		t.Fatal("expected error when neither body nor body_html provided")
+	}
+
+	// Missing required recipient is rejected.
+	if _, err := tool.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{"subject": "Hi", "body": "x"},
+	}}); err == nil {
+		t.Fatal("expected error when 'to' missing")
+	}
+}
+
 func TestMCPListToolsUsesRuntimeStdout(t *testing.T) {
 	var output bytes.Buffer
 	err := (&McpCmd{

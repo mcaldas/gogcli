@@ -50,6 +50,21 @@ The exception is an explicit persistent MCP policy. It can authorize a narrow
 write surface without repeating `--allow-write` in every client definition;
 runtime flags can only reduce that configured surface.
 
+Expose high-risk send/create tools (send email, upload/create Drive files,
+create Calendar events):
+
+```bash
+gog --account you@gmail.com mcp \
+  --allow-send \
+  --allow-tool 'gmail_send,drive_upload,calendar_create'
+```
+
+`--allow-send` is a separate gate from `--allow-write`. Enabling in-place edits
+(`--allow-write`) never implicitly grants outbound or resource-creating actions;
+these irreversible, higher-blast-radius tools must be opted into explicitly via
+`--allow-send`. The two flags can be combined. A send tool that matches
+`--allow-tool` is still hidden until `--allow-send` is present.
+
 ## Why this is not `gog_exec`
 
 MCP clients are often LLM-driven. A generic "run this command" tool would expose
@@ -91,6 +106,7 @@ Accepted selectors:
 | `gmail.*` | All Gmail tools allowed by risk mode |
 | `read` | All read tools |
 | `write` | All write tools, only when `--allow-write` is also set |
+| `send` | All send/create tools, only when `--allow-send` is also set |
 | `*` or `all` | All tools allowed by risk mode |
 
 Examples:
@@ -172,6 +188,15 @@ Write tools, hidden unless `--allow-write`:
 | --- | --- |
 | `docs_write` | Append or replace Google Docs text, optionally as Markdown. |
 | `sheets_update_range` | Update values in a Sheets range from a literal JSON 2D array. |
+
+Send/create tools, hidden unless `--allow-send`:
+
+| Tool | Purpose |
+| --- | --- |
+| `gmail_send` | Send an email (`to`, `subject`, `body`/`body_html`, optional `cc`/`bcc`/`from`). Irreversible. |
+| `drive_upload` | Upload a local file to Drive (`local_path`, optional `name`/`parent`/`mime_type`/`convert`). |
+| `drive_mkdir` | Create a Drive folder (`name`, optional `parent`). |
+| `calendar_create` | Create a Calendar event (`summary`, `from`, `to`, optional `calendar_id`/`description`/`location`/`attendees`/`timezone`/`all_day`). Inviting attendees notifies them. |
 
 The generated command reference for the server itself is
 [`gog mcp`](commands/gog-mcp.md).
