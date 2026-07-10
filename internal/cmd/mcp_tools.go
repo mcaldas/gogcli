@@ -370,6 +370,7 @@ func mcpGmailSendTool() mcpToolSpec {
 			mcp.WithString("cc", mcp.Description("CC recipients (comma-separated)")),
 			mcp.WithString("bcc", mcp.Description("BCC recipients (comma-separated)")),
 			mcp.WithString("from", mcp.Description("Send-as address (must be a configured alias of the account)")),
+			mcp.WithString("attach", mcp.Description("Attachment local file path(s), comma-separated. Files are read from the machine running the server.")),
 		},
 		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
 			to, err := requireMCPString(req, "to")
@@ -400,6 +401,11 @@ func mcpGmailSendTool() mcpToolSpec {
 			}
 			if from := strings.TrimSpace(req.GetString("from", "")); from != "" {
 				args = append(args, "--from", from)
+			}
+			for _, path := range strings.Split(req.GetString("attach", ""), ",") {
+				if path = strings.TrimSpace(path); path != "" {
+					args = append(args, "--attach", path)
+				}
 			}
 			return args, nil
 		},
