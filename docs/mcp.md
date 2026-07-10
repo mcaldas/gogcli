@@ -123,6 +123,14 @@ gog mcp --allow-write --allow-tool write
 
 ## Initial tools
 
+Discovery tools (read-only, enabled by default; execute no Google API calls, so
+they are safe to leave on even for untrusted agents):
+
+| Tool | Purpose |
+| --- | --- |
+| `gog_list_commands` | Compact help listing of subcommands under a path (omit `path` for top-level groups). Drill down to explore the full CLI surface. |
+| `gog_describe` | Machine-readable schema (flags, args, types) for one command path, e.g. `drive ls`. |
+
 Read tools:
 
 | Tool | Purpose |

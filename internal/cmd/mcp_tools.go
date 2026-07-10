@@ -13,6 +13,8 @@ import (
 
 func mcpAllTools() []mcpToolSpec {
 	return []mcpToolSpec{
+		mcpListCommandsTool(),
+		mcpDescribeCommandTool(),
 		mcpGmailSearchTool(),
 		mcpGmailGetMessageTool(),
 		mcpGmailGetThreadTool(),
@@ -27,6 +29,54 @@ func mcpAllTools() []mcpToolSpec {
 		mcpDriveUploadTool(),
 		mcpDriveMkdirTool(),
 		mcpCalendarCreateTool(),
+	}
+}
+
+// mcpCommandPathArgs splits a space-separated command path into argv tokens,
+// trimming blanks. Tokens are plain command words appended to a gog argv (no
+// shell), and the commands they feed (--help, schema) execute nothing.
+func mcpCommandPathArgs(raw string) []string {
+	var out []string
+	for _, tok := range strings.Fields(raw) {
+		if tok = strings.TrimSpace(tok); tok != "" {
+			out = append(out, tok)
+		}
+	}
+	return out
+}
+
+func mcpListCommandsTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "gog_list_commands",
+		Service:     "meta",
+		Risk:        mcpRiskRead,
+		Description: "Discover available gog commands. Returns the compact help listing (subcommands + one-line summaries) under a command path. Omit 'path' for the top-level groups (gmail, drive, calendar, docs, sheets, contacts, tasks, ...). Drill down by passing a deeper path (e.g. 'gmail drafts'), then call gog_describe for a specific command's full flags. Read-only: runs no Google API calls and executes nothing.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("path", mcp.Description("Command path to list under, e.g. 'drive' or 'gmail drafts'. Omit for the top-level command groups.")),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			args := mcpCommandPathArgs(req.GetString("path", ""))
+			return append(args, "--help"), nil
+		},
+	}
+}
+
+func mcpDescribeCommandTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "gog_describe",
+		Service:     "meta",
+		Risk:        mcpRiskRead,
+		Description: "Get the machine-readable schema (subcommands, flags, arguments, types) for a specific gog command path, e.g. 'drive ls' or 'gmail send'. Use gog_list_commands first to find paths. Describe a specific command rather than a whole group to keep output small. Read-only: executes nothing.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("command", mcp.Description("Command path to describe, e.g. 'drive ls' or 'calendar create'"), mcp.Required()),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			command, err := requireMCPString(req, "command")
+			if err != nil {
+				return nil, err
+			}
+			return append([]string{"schema"}, mcpCommandPathArgs(command)...), nil
+		},
 	}
 }
 

@@ -39,6 +39,47 @@ func TestMCPEnabledToolsAllowWriteAndFilter(t *testing.T) {
 	}
 }
 
+func TestMCPDiscoveryToolsDefaultReadOnly(t *testing.T) {
+	tools := mcpEnabledTools(McpCmd{})
+	if !hasMCPTool(tools, "gog_list_commands") || !hasMCPTool(tools, "gog_describe") {
+		t.Fatalf("discovery tools should be enabled by default, got %#v", toolNames(tools))
+	}
+	for _, name := range []string{"gog_list_commands", "gog_describe"} {
+		tool := findMCPTool(t, name)
+		if tool.Risk != mcpRiskRead {
+			t.Fatalf("%s should be read-risk, got %q", name, tool.Risk)
+		}
+	}
+
+	// list_commands: no path -> just --help (top level).
+	list := findMCPTool(t, "gog_list_commands")
+	args, err := list.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: map[string]any{}}})
+	if err != nil || strings.Join(args, "\x00") != "--help" {
+		t.Fatalf("list top-level args = %#v (err %v), want [--help]", args, err)
+	}
+	// list_commands: path -> tokens then --help.
+	args, err = list.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: map[string]any{"path": "gmail drafts"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(args, "\x00") != strings.Join([]string{"gmail", "drafts", "--help"}, "\x00") {
+		t.Fatalf("list path args = %#v", args)
+	}
+
+	// describe: command -> schema <tokens>.
+	desc := findMCPTool(t, "gog_describe")
+	args, err = desc.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: map[string]any{"command": "drive ls"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(args, "\x00") != strings.Join([]string{"schema", "drive", "ls"}, "\x00") {
+		t.Fatalf("describe args = %#v", args)
+	}
+	if _, err := desc.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: map[string]any{}}}); err == nil {
+		t.Fatal("describe should require 'command'")
+	}
+}
+
 func TestMCPEnabledToolsAllowSendGating(t *testing.T) {
 	sendTools := []string{"gmail_send", "drive_upload", "drive_mkdir", "calendar_create"}
 
