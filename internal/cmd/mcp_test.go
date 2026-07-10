@@ -97,6 +97,23 @@ func TestMCPGmailSendBuildArgs(t *testing.T) {
 		t.Fatalf("args = %#v, want %#v", args, want)
 	}
 
+	// Comma-separated attachments become repeated --attach flags (spaces trimmed, empties dropped).
+	attArgs, err := tool.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{
+			"to":      "a@example.com",
+			"subject": "Hi",
+			"body":    "b",
+			"attach":  "/tmp/report.pdf, /tmp/chart.png ,",
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantAtt := []string{"gmail", "send", "--to", "a@example.com", "--subject", "Hi", "--body", "b", "--attach", "/tmp/report.pdf", "--attach", "/tmp/chart.png"}
+	if strings.Join(attArgs, "\x00") != strings.Join(wantAtt, "\x00") {
+		t.Fatalf("attach args = %#v, want %#v", attArgs, wantAtt)
+	}
+
 	// Missing both body and body_html is rejected.
 	if _, err := tool.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
 		Arguments: map[string]any{"to": "a@example.com", "subject": "Hi"},
