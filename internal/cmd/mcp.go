@@ -20,7 +20,7 @@ import (
 type McpCmd struct {
 	AllowTool      []string `name:"allow-tool" aliases:"tool" sep:"," help:"Tool or service allowlist (default: all read-only tools). Examples: gmail.*,docs_get,sheets"`
 	AllowWrite     bool     `name:"allow-write" help:"Expose write tools (edit existing Docs/Sheets). Write tools must also match --allow-tool when that flag is set."`
-	AllowSend      bool     `name:"allow-send" help:"Expose high-risk send/create tools (gmail send, drive upload/mkdir, calendar create). Independent of --allow-write. Tools must also match --allow-tool when that flag is set."`
+	AllowSend      bool     `name:"allow-send" help:"Expose high-risk send/create/destructive tools (gmail send, drive upload/mkdir, calendar create, sheets clear). Independent of --allow-write. Tools must also match --allow-tool when that flag is set."`
 	ListTools      bool     `name:"list-tools" help:"Print enabled MCP tools as JSON and exit"`
 	TimeoutSeconds int      `name:"timeout-seconds" help:"Per-tool subprocess timeout" default:"60"`
 	MaxOutputBytes int      `name:"max-output-bytes" help:"Max stdout/stderr bytes captured per tool call" default:"102400"`

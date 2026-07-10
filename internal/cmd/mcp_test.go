@@ -170,6 +170,64 @@ func TestMCPGmailSendBuildArgs(t *testing.T) {
 	}
 }
 
+func TestMCPExpandedTypedToolsGatingAndArgs(t *testing.T) {
+	// New write-tier tools: exposed by --allow-write, NOT by default, NOT by --allow-send.
+	writeTools := []string{"gmail_drafts_create", "drive_download", "drive_move", "drive_rename", "calendar_edit", "docs_create", "sheets_create", "sheets_append"}
+	def := mcpEnabledTools(McpCmd{})
+	write := mcpEnabledTools(McpCmd{AllowWrite: true})
+	send := mcpEnabledTools(McpCmd{AllowSend: true})
+	for _, name := range writeTools {
+		if hasMCPTool(def, name) {
+			t.Fatalf("%s should require --allow-write", name)
+		}
+		if !hasMCPTool(write, name) {
+			t.Fatalf("%s should be enabled by --allow-write", name)
+		}
+		if hasMCPTool(send, name) {
+			t.Fatalf("%s should NOT be exposed by --allow-send alone", name)
+		}
+	}
+	// sheets_clear is destructive -> send tier, NOT write.
+	if hasMCPTool(write, "sheets_clear") {
+		t.Fatal("sheets_clear must NOT be under --allow-write (destructive)")
+	}
+	if !hasMCPTool(send, "sheets_clear") {
+		t.Fatal("sheets_clear should be under --allow-send")
+	}
+
+	// argv mappings.
+	cases := []struct {
+		tool string
+		args map[string]any
+		want []string
+	}{
+		{"drive_rename", map[string]any{"file_id": "F1", "new_name": "new.txt"}, []string{"drive", "rename", "--", "F1", "new.txt"}},
+		{"drive_move", map[string]any{"file_id": "F1", "parent": "P1"}, []string{"drive", "move", "--parent", "P1", "--", "F1"}},
+		{"sheets_append", map[string]any{"spreadsheet_id": "S1", "range": "Sheet1!A:B", "values_json": `[["a","b"]]`, "input": "RAW", "insert": "INSERT_ROWS"}, []string{"sheets", "append", "--values-json", `[["a","b"]]`, "--input", "RAW", "--insert", "INSERT_ROWS", "--", "S1", "Sheet1!A:B"}},
+		{"sheets_clear", map[string]any{"spreadsheet_id": "S1", "range": "Sheet1!A1:B2"}, []string{"sheets", "clear", "--", "S1", "Sheet1!A1:B2"}},
+		{"docs_create", map[string]any{"title": "My Doc"}, []string{"docs", "create", "--", "My Doc"}},
+		{"calendar_edit", map[string]any{"event_id": "E1", "summary": "New", "add_attendees": "x@y.com"}, []string{"calendar", "edit", "--summary", "New", "--add-attendee", "x@y.com", "--", "primary", "E1"}},
+		{"gmail_drafts_create", map[string]any{"subject": "S", "body": "B", "to": "a@b.com", "attach": "/tmp/x.pdf"}, []string{"gmail", "drafts", "create", "--subject", "S", "--body", "B", "--to", "a@b.com", "--attach", "/tmp/x.pdf"}},
+	}
+	for _, tc := range cases {
+		tool := findMCPTool(t, tc.tool)
+		args, err := tool.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: tc.args}})
+		if err != nil {
+			t.Fatalf("%s: %v", tc.tool, err)
+		}
+		if strings.Join(args, "\x00") != strings.Join(tc.want, "\x00") {
+			t.Fatalf("%s args = %#v, want %#v", tc.tool, args, tc.want)
+		}
+	}
+
+	// sheets_append rejects @file / stdin JSON expansion (same guard as update).
+	if _, err := findMCPTool(t, "sheets_append").BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{"spreadsheet_id": "S1", "range": "A:B", "values_json": "@/etc/passwd"},
+	}}); err == nil {
+		t.Fatal("sheets_append should reject @file values_json")
+	}
+}
+
 func TestMCPListToolsUsesRuntimeStdout(t *testing.T) {
 	var output bytes.Buffer
 	err := (&McpCmd{
