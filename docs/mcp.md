@@ -196,15 +196,24 @@ Write tools, hidden unless `--allow-write`:
 | --- | --- |
 | `docs_write` | Append or replace Google Docs text, optionally as Markdown. |
 | `sheets_update_range` | Update values in a Sheets range from a literal JSON 2D array. |
+| `gmail_drafts_create` | Create a Gmail draft (does NOT send); supports `attach`. |
+| `drive_download` | Download a Drive file to a local path (`file_id`, optional `out`/`format`/`overwrite`). |
+| `drive_move` | Move a Drive file to another folder (`file_id`, `parent`). |
+| `drive_rename` | Rename a Drive file (`file_id`, `new_name`). |
+| `calendar_edit` | Edit an existing event (`event_id`, optional `summary`/`from`/`to`/`description`/`location`/`add_attendees`/`all_day`). May notify attendees. |
+| `docs_create` | Create a new Google Doc (`title`, optional `parent`/`markdown_file`/`pageless`). |
+| `sheets_create` | Create a new spreadsheet (`title`, optional `sheets`/`parent`). |
+| `sheets_append` | Append rows to a Sheets range (additive; `values_json`, optional `input`/`insert`). |
 
-Send/create tools, hidden unless `--allow-send`:
+Send/create/destructive tools, hidden unless `--allow-send`:
 
 | Tool | Purpose |
 | --- | --- |
-| `gmail_send` | Send an email (`to`, `subject`, `body`/`body_html`, optional `cc`/`bcc`/`from`). Irreversible. |
+| `gmail_send` | Send an email (`to`, `subject`, `body`/`body_html`, optional `cc`/`bcc`/`from`/`attach`). Irreversible. |
 | `drive_upload` | Upload a local file to Drive (`local_path`, optional `name`/`parent`/`mime_type`/`convert`). |
 | `drive_mkdir` | Create a Drive folder (`name`, optional `parent`). |
 | `calendar_create` | Create a Calendar event (`summary`, `from`, `to`, optional `calendar_id`/`description`/`location`/`attendees`/`timezone`/`all_day`). Inviting attendees notifies them. |
+| `sheets_clear` | Clear values from a Sheets range. **Destructive (data loss).** |
 
 The generated command reference for the server itself is
 [`gog mcp`](commands/gog-mcp.md).
