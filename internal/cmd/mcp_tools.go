@@ -23,6 +23,10 @@ func mcpAllTools() []mcpToolSpec {
 		mcpCalendarEventsTool(),
 		mcpDocsWriteTool(),
 		mcpSheetsUpdateRangeTool(),
+		mcpGmailSendTool(),
+		mcpDriveUploadTool(),
+		mcpDriveMkdirTool(),
+		mcpCalendarCreateTool(),
 	}
 }
 
@@ -348,6 +352,171 @@ func mcpSheetsUpdateRangeTool() mcpToolSpec {
 				input = "USER_ENTERED"
 			}
 			return []string{"sheets", "update", "--values-json", valuesJSON, "--input", input, "--", spreadsheetID, rangeSpec}, nil
+		},
+	}
+}
+
+func mcpGmailSendTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "gmail_send",
+		Service:     "gmail",
+		Risk:        mcpRiskSend,
+		Description: "Send an email from the active account. Requires --allow-send on the MCP server. This action is irreversible and leaves your account.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("to", mcp.Description("Recipients (comma-separated)"), mcp.Required()),
+			mcp.WithString("subject", mcp.Description("Subject line"), mcp.Required()),
+			mcp.WithString("body", mcp.Description("Plain-text body. Provide this or body_html (or both)."), mcp.DefaultString("")),
+			mcp.WithString("body_html", mcp.Description("HTML body (optional)"), mcp.DefaultString("")),
+			mcp.WithString("cc", mcp.Description("CC recipients (comma-separated)")),
+			mcp.WithString("bcc", mcp.Description("BCC recipients (comma-separated)")),
+			mcp.WithString("from", mcp.Description("Send-as address (must be a configured alias of the account)")),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			to, err := requireMCPString(req, "to")
+			if err != nil {
+				return nil, err
+			}
+			subject, err := requireMCPString(req, "subject")
+			if err != nil {
+				return nil, err
+			}
+			body := strings.TrimSpace(req.GetString("body", ""))
+			bodyHTML := strings.TrimSpace(req.GetString("body_html", ""))
+			if body == "" && bodyHTML == "" {
+				return nil, fmt.Errorf("provide body or body_html")
+			}
+			args := []string{"gmail", "send", "--to", to, "--subject", subject}
+			if body != "" {
+				args = append(args, "--body", body)
+			}
+			if bodyHTML != "" {
+				args = append(args, "--body-html", bodyHTML)
+			}
+			if cc := strings.TrimSpace(req.GetString("cc", "")); cc != "" {
+				args = append(args, "--cc", cc)
+			}
+			if bcc := strings.TrimSpace(req.GetString("bcc", "")); bcc != "" {
+				args = append(args, "--bcc", bcc)
+			}
+			if from := strings.TrimSpace(req.GetString("from", "")); from != "" {
+				args = append(args, "--from", from)
+			}
+			return args, nil
+		},
+	}
+}
+
+func mcpDriveUploadTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "drive_upload",
+		Service:     "drive",
+		Risk:        mcpRiskSend,
+		Description: "Upload a local file to Google Drive. Requires --allow-send on the MCP server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("local_path", mcp.Description("Path to the local file to upload"), mcp.Required()),
+			mcp.WithString("name", mcp.Description("Override the uploaded file name")),
+			mcp.WithString("parent", mcp.Description("Destination folder ID")),
+			mcp.WithString("mime_type", mcp.Description("Override MIME type inference")),
+			mcp.WithBoolean("convert", mcp.Description("Auto-convert to native Google format"), mcp.DefaultBool(false)),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			localPath, err := requireMCPString(req, "local_path")
+			if err != nil {
+				return nil, err
+			}
+			args := []string{"drive", "upload"}
+			if name := strings.TrimSpace(req.GetString("name", "")); name != "" {
+				args = append(args, "--name", name)
+			}
+			if parent := strings.TrimSpace(req.GetString("parent", "")); parent != "" {
+				args = append(args, "--parent", parent)
+			}
+			if mimeType := strings.TrimSpace(req.GetString("mime_type", "")); mimeType != "" {
+				args = append(args, "--mime-type", mimeType)
+			}
+			if req.GetBool("convert", false) {
+				args = append(args, "--convert")
+			}
+			return append(args, "--", localPath), nil
+		},
+	}
+}
+
+func mcpDriveMkdirTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "drive_mkdir",
+		Service:     "drive",
+		Risk:        mcpRiskSend,
+		Description: "Create a folder in Google Drive. Requires --allow-send on the MCP server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("name", mcp.Description("Folder name"), mcp.Required()),
+			mcp.WithString("parent", mcp.Description("Parent folder ID")),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			name, err := requireMCPString(req, "name")
+			if err != nil {
+				return nil, err
+			}
+			args := []string{"drive", "mkdir"}
+			if parent := strings.TrimSpace(req.GetString("parent", "")); parent != "" {
+				args = append(args, "--parent", parent)
+			}
+			return append(args, "--", name), nil
+		},
+	}
+}
+
+func mcpCalendarCreateTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "calendar_create",
+		Service:     "calendar",
+		Risk:        mcpRiskSend,
+		Description: "Create a Google Calendar event. Requires --allow-send on the MCP server. Inviting attendees notifies them.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("summary", mcp.Description("Event title/summary"), mcp.Required()),
+			mcp.WithString("from", mcp.Description("Start: RFC3339 timestamp, or date (YYYY-MM-DD) for all-day"), mcp.Required()),
+			mcp.WithString("to", mcp.Description("End: RFC3339 timestamp, or date (YYYY-MM-DD) for all-day"), mcp.Required()),
+			mcp.WithString("calendar_id", mcp.Description("Target calendar ID; default primary"), mcp.DefaultString("primary")),
+			mcp.WithString("description", mcp.Description("Event description")),
+			mcp.WithString("location", mcp.Description("Event location")),
+			mcp.WithString("attendees", mcp.Description("Comma-separated attendee emails")),
+			mcp.WithString("timezone", mcp.Description("IANA timezone for start/end (e.g. Asia/Jerusalem)")),
+			mcp.WithBoolean("all_day", mcp.Description("All-day event (use date-only from/to)"), mcp.DefaultBool(false)),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			summary, err := requireMCPString(req, "summary")
+			if err != nil {
+				return nil, err
+			}
+			from, err := requireMCPString(req, "from")
+			if err != nil {
+				return nil, err
+			}
+			to, err := requireMCPString(req, "to")
+			if err != nil {
+				return nil, err
+			}
+			calendarID := strings.TrimSpace(req.GetString("calendar_id", "primary"))
+			if calendarID == "" {
+				calendarID = "primary"
+			}
+			args := []string{"calendar", "create", "--summary", summary, "--from", from, "--to", to}
+			if desc := strings.TrimSpace(req.GetString("description", "")); desc != "" {
+				args = append(args, "--description", desc)
+			}
+			if location := strings.TrimSpace(req.GetString("location", "")); location != "" {
+				args = append(args, "--location", location)
+			}
+			if attendees := strings.TrimSpace(req.GetString("attendees", "")); attendees != "" {
+				args = append(args, "--attendees", attendees)
+			}
+			if tz := strings.TrimSpace(req.GetString("timezone", "")); tz != "" {
+				args = append(args, "--timezone", tz)
+			}
+			if req.GetBool("all_day", false) {
+				args = append(args, "--all-day")
+			}
+			return append(args, "--", calendarID), nil
 		},
 	}
 }

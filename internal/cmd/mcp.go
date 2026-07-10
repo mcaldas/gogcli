@@ -19,7 +19,8 @@ import (
 
 type McpCmd struct {
 	AllowTool      []string `name:"allow-tool" aliases:"tool" sep:"," help:"Tool or service allowlist (default: all read-only tools). Examples: gmail.*,docs_get,sheets"`
-	AllowWrite     bool     `name:"allow-write" help:"Expose write tools. Write tools must also match --allow-tool when that flag is set."`
+	AllowWrite     bool     `name:"allow-write" help:"Expose write tools (edit existing Docs/Sheets). Write tools must also match --allow-tool when that flag is set."`
+	AllowSend      bool     `name:"allow-send" help:"Expose high-risk send/create tools (gmail send, drive upload/mkdir, calendar create). Independent of --allow-write. Tools must also match --allow-tool when that flag is set."`
 	ListTools      bool     `name:"list-tools" help:"Print enabled MCP tools as JSON and exit"`
 	TimeoutSeconds int      `name:"timeout-seconds" help:"Per-tool subprocess timeout" default:"60"`
 	MaxOutputBytes int      `name:"max-output-bytes" help:"Max stdout/stderr bytes captured per tool call" default:"102400"`
@@ -30,6 +31,11 @@ type mcpToolRisk string
 const (
 	mcpRiskRead  mcpToolRisk = "read"
 	mcpRiskWrite mcpToolRisk = "write"
+	// mcpRiskSend marks high-risk tools that create new resources or send
+	// content out of the account (e.g. gmail send, drive upload, calendar
+	// create). These are gated behind --allow-send, separate from --allow-write,
+	// so enabling in-place edits never implicitly grants outbound/create actions.
+	mcpRiskSend mcpToolRisk = "send"
 )
 
 type mcpToolSpec struct {
@@ -113,7 +119,7 @@ func newMCPTool(tool mcpToolSpec) mcp.Tool {
 	opts := append([]mcp.ToolOption{
 		mcp.WithDescription(tool.Description),
 		mcp.WithReadOnlyHintAnnotation(tool.Risk == mcpRiskRead),
-		mcp.WithDestructiveHintAnnotation(tool.Risk == mcpRiskWrite),
+		mcp.WithDestructiveHintAnnotation(tool.Risk != mcpRiskRead),
 		mcp.WithIdempotentHintAnnotation(tool.Risk == mcpRiskRead),
 		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithSchemaAdditionalProperties(false),
@@ -248,6 +254,9 @@ func mcpEnabledTools(cmd McpCmd) []mcpToolSpec {
 	out := make([]mcpToolSpec, 0, len(all))
 	for _, tool := range all {
 		if tool.Risk == mcpRiskWrite && !cmd.AllowWrite {
+			continue
+		}
+		if tool.Risk == mcpRiskSend && !cmd.AllowSend {
 			continue
 		}
 		if len(allow) > 0 && !mcpToolAllowed(tool, allow) {
