@@ -362,6 +362,56 @@ func TestMCPExpandedTypedToolsGatingAndArgs(t *testing.T) {
 	}
 }
 
+func TestMCPAttachmentToolsGatingAndArgs(t *testing.T) {
+	// gmail_read_attachment: read-tier, on by default, no disk write (--out -).
+	read := findMCPTool(t, "gmail_read_attachment")
+	if read.Risk != mcpRiskRead {
+		t.Fatalf("gmail_read_attachment should be read-risk, got %q", read.Risk)
+	}
+	if !hasMCPTool(mcpEnabledTools(McpCmd{}), "gmail_read_attachment") {
+		t.Fatal("gmail_read_attachment should be enabled by default (read tier)")
+	}
+	args, err := read.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{"message_id": "M1", "attachment_id": "A1"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"gmail", "attachment", "--out", "-", "--", "M1", "A1"}
+	if strings.Join(args, "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("read args = %#v, want %#v", args, want)
+	}
+
+	// gmail_get_attachment: write-tier (writes a file), requires --allow-write.
+	if hasMCPTool(mcpEnabledTools(McpCmd{}), "gmail_get_attachment") {
+		t.Fatal("gmail_get_attachment should require --allow-write")
+	}
+	if hasMCPTool(mcpEnabledTools(McpCmd{AllowSend: true}), "gmail_get_attachment") {
+		t.Fatal("gmail_get_attachment should NOT be exposed by --allow-send alone")
+	}
+	if !hasMCPTool(mcpEnabledTools(McpCmd{AllowWrite: true}), "gmail_get_attachment") {
+		t.Fatal("gmail_get_attachment should be enabled by --allow-write")
+	}
+	get := findMCPTool(t, "gmail_get_attachment")
+	getArgs, err := get.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{"message_id": "M1", "attachment_id": "A1", "out": "/tmp/out", "name": "r.pdf"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantGet := []string{"gmail", "attachment", "--out", "/tmp/out", "--name", "r.pdf", "--", "M1", "A1"}
+	if strings.Join(getArgs, "\x00") != strings.Join(wantGet, "\x00") {
+		t.Fatalf("get args = %#v, want %#v", getArgs, wantGet)
+	}
+
+	// gmail_get_attachment rejects out=- (that is the read tool's job).
+	if _, err := get.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{"message_id": "M1", "attachment_id": "A1", "out": "-"},
+	}}); err == nil {
+		t.Fatal("gmail_get_attachment should reject out=-")
+	}
+}
+
 func TestMCPListToolsUsesRuntimeStdout(t *testing.T) {
 	var output bytes.Buffer
 	err := (&McpCmd{

@@ -92,6 +92,14 @@ func (c *GmailAttachmentCmd) Run(ctx context.Context, flags *RootFlags) error {
 			return usagef("attachment index must be >= 0, got %d", attachmentIndex)
 		}
 	}
+
+	// `--out -` streams the attachment to stdout instead of writing a file:
+	// base64 in JSON mode, raw bytes otherwise. Read-only (no disk side-effect),
+	// which lets an MCP client fetch attachment content inline.
+	if strings.TrimSpace(c.Output.Path) == "-" {
+		return c.runStdout(ctx, flags, messageID, attachmentID)
+	}
+
 	defaultDir := ""
 	if strings.TrimSpace(c.Output.Path) == "" {
 		layout, err := commandLayout(ctx, config.PathKindConfig)
@@ -187,6 +195,45 @@ func addInlineContent(payload map[string]any, data []byte, maxBytes int) {
 		return
 	}
 	payload["contentBase64"] = base64.StdEncoding.EncodeToString(data)
+}
+
+// runStdout fetches the attachment bytes and emits them to stdout without
+// touching disk. In JSON mode it returns a base64-encoded envelope; otherwise
+// it writes the raw bytes (Unix `-` convention). Because nothing is written to
+// the filesystem, this path is a pure read.
+func (c *GmailAttachmentCmd) runStdout(ctx context.Context, flags *RootFlags, messageID, attachmentID string) error {
+	if dryRunErr := dryRunExit(ctx, flags, "gmail.attachment.stdout", map[string]any{
+		"message_id":    messageID,
+		"attachment_id": attachmentID,
+		"path":          "-",
+	}); dryRunErr != nil {
+		return dryRunErr
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := gmailService(ctx, account)
+	if err != nil {
+		return err
+	}
+	data, err := fetchAttachmentBytes(ctx, svc, messageID, attachmentID)
+	if err != nil {
+		return err
+	}
+
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
+			"message_id":    messageID,
+			"attachment_id": attachmentID,
+			"bytes":         len(data),
+			"encoding":      "base64",
+			"base64":        base64.StdEncoding.EncodeToString(data),
+		})
+	}
+	_, err = stdoutWriter(ctx).Write(data)
+	return err
 }
 
 func resolveAttachmentDest(messageID, attachmentID, outPathFlag, name, defaultDir string) (string, error) {
