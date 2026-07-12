@@ -187,9 +187,12 @@ Read tools:
 | `gmail_read_attachment` | Return a Gmail attachment's content inline as base64 (no file written). Best for small attachments; large ones hit the server output cap — use `gmail_get_attachment` instead. |
 | `drive_search` | Search Drive files by text or Drive query language. |
 | `drive_get` | Read Drive file metadata by ID. |
+| `drive_ls` | List files in a Drive folder (`parent`), or all accessible files (`all`). |
+| `drive_tree` | Print a read-only Drive folder tree (`parent`, optional `depth`/`max`). |
 | `docs_get` | Read a Google Doc as wrapped text, optionally one tab or all tabs. |
 | `sheets_read_range` | Read values from a Sheets range. |
 | `calendar_events` | List Calendar events. |
+| `calendar_freebusy` | Query free/busy availability over a window (`from`, `to`, optional `calendars`/`all`). |
 
 Write tools, hidden unless `--allow-write`:
 
