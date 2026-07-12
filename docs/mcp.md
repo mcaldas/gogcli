@@ -184,6 +184,7 @@ Read tools:
 | `gmail_search` | Search Gmail messages with Gmail query syntax. |
 | `gmail_get_message` | Read one Gmail message by ID. Sanitized content is on by default. |
 | `gmail_get_thread` | Read one Gmail thread by ID. Sanitized content is on by default. |
+| `gmail_read_attachment` | Return a Gmail attachment's content inline as base64 (no file written). Best for small attachments; large ones hit the server output cap — use `gmail_get_attachment` instead. |
 | `drive_search` | Search Drive files by text or Drive query language. |
 | `drive_get` | Read Drive file metadata by ID. |
 | `docs_get` | Read a Google Doc as wrapped text, optionally one tab or all tabs. |
@@ -198,6 +199,7 @@ Write tools, hidden unless `--allow-write`:
 | `sheets_update_range` | Update values in a Sheets range from a literal JSON 2D array. |
 | `gmail_drafts_create` | Create a Gmail draft (does NOT send); supports `attach`. |
 | `drive_download` | Download a Drive file to a local path (`file_id`, optional `out`/`format`/`overwrite`). |
+| `gmail_get_attachment` | Save a Gmail attachment to a local file and return its path (`message_id`, `attachment_id`, optional `out`/`name`). |
 | `drive_move` | Move a Drive file to another folder (`file_id`, `parent`). |
 | `drive_rename` | Rename a Drive file (`file_id`, `new_name`). |
 | `calendar_edit` | Edit an existing event (`event_id`, optional `summary`/`from`/`to`/`description`/`location`/`add_attendees`/`all_day`). May notify attendees. |
