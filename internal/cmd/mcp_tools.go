@@ -21,9 +21,12 @@ func mcpAllTools() []mcpToolSpec {
 		mcpGmailReadAttachmentTool(),
 		mcpDriveSearchTool(),
 		mcpDriveGetTool(),
+		mcpDriveLsTool(),
+		mcpDriveTreeTool(),
 		mcpDocsGetTool(),
 		mcpSheetsReadRangeTool(),
 		mcpCalendarEventsTool(),
+		mcpCalendarFreeBusyTool(),
 		mcpDocsWriteTool(),
 		mcpSheetsUpdateRangeTool(),
 		mcpGmailDraftsCreateTool(),
@@ -257,6 +260,64 @@ func mcpDriveGetTool() mcpToolSpec {
 	}
 }
 
+func mcpDriveLsTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "drive_ls",
+		Service:     "drive",
+		Risk:        mcpRiskRead,
+		Description: "List files in a Drive folder (defaults to root). Use 'parent' for a specific folder, or all=true to list all accessible files (mutually exclusive with parent).",
+		Options: []mcp.ToolOption{
+			mcp.WithString("parent", mcp.Description("Folder ID to list; default root")),
+			mcp.WithString("query", mcp.Description("Optional Drive query filter")),
+			mcp.WithBoolean("all", mcp.Description("List all accessible files instead of one folder"), mcp.DefaultBool(false)),
+			mcp.WithInteger("max", mcp.Description("Maximum results"), mcp.DefaultNumber(50), mcp.Min(1), mcp.Max(1000)),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			parent := strings.TrimSpace(req.GetString("parent", ""))
+			all := req.GetBool("all", false)
+			if all && parent != "" {
+				return nil, fmt.Errorf("all and parent are mutually exclusive")
+			}
+			args := []string{"drive", "ls", "--max", strconv.Itoa(clampMCPInt(req.GetInt("max", 50), 1, 1000))}
+			if all {
+				args = append(args, "--all")
+			}
+			if parent != "" {
+				args = append(args, "--parent", parent)
+			}
+			if query := strings.TrimSpace(req.GetString("query", "")); query != "" {
+				args = append(args, "--query", query)
+			}
+			return args, nil
+		},
+	}
+}
+
+func mcpDriveTreeTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "drive_tree",
+		Service:     "drive",
+		Risk:        mcpRiskRead,
+		Description: "Print a read-only Drive folder tree starting at a folder (defaults to root).",
+		Options: []mcp.ToolOption{
+			mcp.WithString("parent", mcp.Description("Folder ID to start from; default root")),
+			mcp.WithInteger("depth", mcp.Description("Max depth (0 = unlimited)"), mcp.DefaultNumber(0), mcp.Min(0), mcp.Max(50)),
+			mcp.WithInteger("max", mcp.Description("Max items to return (0 = unlimited)"), mcp.DefaultNumber(200), mcp.Min(0), mcp.Max(5000)),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			args := []string{"drive", "tree"}
+			if parent := strings.TrimSpace(req.GetString("parent", "")); parent != "" {
+				args = append(args, "--parent", parent)
+			}
+			if depth := req.GetInt("depth", 0); depth > 0 {
+				args = append(args, "--depth", strconv.Itoa(clampMCPInt(depth, 1, 50)))
+			}
+			args = append(args, "--max", strconv.Itoa(clampMCPInt(req.GetInt("max", 200), 0, 5000)))
+			return args, nil
+		},
+	}
+}
+
 func mcpDocsGetTool() mcpToolSpec {
 	return mcpToolSpec{
 		Name:        "docs_get",
@@ -360,6 +421,46 @@ func mcpCalendarEventsTool() mcpToolSpec {
 			args = append(args, "--max", strconv.Itoa(clampMCPInt(req.GetInt("max", 10), 1, 250)))
 			if calendarID != "" {
 				args = append(args, "--", calendarID)
+			}
+			return args, nil
+		},
+	}
+}
+
+func mcpCalendarFreeBusyTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "calendar_freebusy",
+		Service:     "calendar",
+		Risk:        mcpRiskRead,
+		Description: "Query free/busy availability over a time window. Pass calendar IDs (comma-separated) or all=true for every calendar; default is the primary calendar.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("from", mcp.Description("Start time: RFC3339, date, or relative (now, today)"), mcp.Required()),
+			mcp.WithString("to", mcp.Description("End time: RFC3339, date, or relative"), mcp.Required()),
+			mcp.WithString("calendars", mcp.Description("Calendar IDs to check (comma-separated); default primary")),
+			mcp.WithBoolean("all", mcp.Description("Query all calendars"), mcp.DefaultBool(false)),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			from, err := requireMCPString(req, "from")
+			if err != nil {
+				return nil, err
+			}
+			to, err := requireMCPString(req, "to")
+			if err != nil {
+				return nil, err
+			}
+			all := req.GetBool("all", false)
+			calendars := strings.TrimSpace(req.GetString("calendars", ""))
+			if all && calendars != "" {
+				return nil, fmt.Errorf("all and calendars are mutually exclusive")
+			}
+			args := []string{"calendar", "freebusy", "--from", from, "--to", to}
+			if all {
+				args = append(args, "--all")
+			}
+			for _, cal := range strings.Split(calendars, ",") {
+				if cal = strings.TrimSpace(cal); cal != "" {
+					args = append(args, "--cal", cal)
+				}
 			}
 			return args, nil
 		},

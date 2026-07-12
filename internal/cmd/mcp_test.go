@@ -412,6 +412,53 @@ func TestMCPAttachmentToolsGatingAndArgs(t *testing.T) {
 	}
 }
 
+func TestMCPSafeReadToolsDefaultOnAndArgs(t *testing.T) {
+	def := mcpEnabledTools(McpCmd{})
+	for _, name := range []string{"drive_ls", "drive_tree", "calendar_freebusy"} {
+		tool := findMCPTool(t, name)
+		if tool.Risk != mcpRiskRead {
+			t.Fatalf("%s should be read-risk, got %q", name, tool.Risk)
+		}
+		if !hasMCPTool(def, name) {
+			t.Fatalf("%s should be enabled by default (read tier)", name)
+		}
+	}
+
+	cases := []struct {
+		tool string
+		args map[string]any
+		want []string
+	}{
+		{"drive_ls", map[string]any{"parent": "F1", "max": 25}, []string{"drive", "ls", "--max", "25", "--parent", "F1"}},
+		{"drive_ls", map[string]any{"all": true, "query": "name contains 'x'"}, []string{"drive", "ls", "--max", "50", "--all", "--query", "name contains 'x'"}},
+		{"drive_tree", map[string]any{"parent": "F1", "depth": 2}, []string{"drive", "tree", "--parent", "F1", "--depth", "2", "--max", "200"}},
+		{"calendar_freebusy", map[string]any{"from": "today", "to": "today+7d", "calendars": "primary, work@x.com"}, []string{"calendar", "freebusy", "--from", "today", "--to", "today+7d", "--cal", "primary", "--cal", "work@x.com"}},
+		{"calendar_freebusy", map[string]any{"from": "now", "to": "now+1d", "all": true}, []string{"calendar", "freebusy", "--from", "now", "--to", "now+1d", "--all"}},
+	}
+	for _, tc := range cases {
+		tool := findMCPTool(t, tc.tool)
+		args, err := tool.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: tc.args}})
+		if err != nil {
+			t.Fatalf("%s: %v", tc.tool, err)
+		}
+		if strings.Join(args, "\x00") != strings.Join(tc.want, "\x00") {
+			t.Fatalf("%s args = %#v, want %#v", tc.tool, args, tc.want)
+		}
+	}
+
+	// mutual-exclusion guards.
+	if _, err := findMCPTool(t, "drive_ls").BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{"all": true, "parent": "F1"},
+	}}); err == nil {
+		t.Fatal("drive_ls should reject all+parent")
+	}
+	if _, err := findMCPTool(t, "calendar_freebusy").BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{"from": "a", "to": "b", "all": true, "calendars": "primary"},
+	}}); err == nil {
+		t.Fatal("calendar_freebusy should reject all+calendars")
+	}
+}
+
 func TestMCPListToolsUsesRuntimeStdout(t *testing.T) {
 	var output bytes.Buffer
 	err := (&McpCmd{
