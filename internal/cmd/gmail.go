@@ -6,7 +6,7 @@ type GmailCmd struct {
 	Thread     GmailThreadCmd     `cmd:"" name:"thread" aliases:"threads,read" group:"Organize" help:"Thread operations (get, modify)"`
 	Get        GmailGetCmd        `cmd:"" name:"get" aliases:"info,show" group:"Read" help:"Get a message (full|metadata|raw)"`
 	Raw        GmailRawCmd        `cmd:"" name:"raw" group:"Read" help:"Dump raw Gmail API response as JSON (Users.Messages.Get; lossless; for scripting and LLM consumption)"`
-	Attachment GmailAttachmentCmd `cmd:"" name:"attachment" group:"Read" help:"Download a single attachment"`
+	Attachment GmailAttachmentCmd `cmd:"" name:"attachment" group:"Read" help:"Download a single attachment (use --out - to stream to stdout: base64 in --json mode, raw bytes otherwise)"`
 	URL        GmailURLCmd        `cmd:"" name:"url" group:"Read" help:"Print Gmail web URLs for threads"`
 	History    GmailHistoryCmd    `cmd:"" name:"history" group:"Read" help:"Gmail history"`
 

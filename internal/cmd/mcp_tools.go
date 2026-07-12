@@ -18,6 +18,7 @@ func mcpAllTools() []mcpToolSpec {
 		mcpGmailSearchTool(),
 		mcpGmailGetMessageTool(),
 		mcpGmailGetThreadTool(),
+		mcpGmailReadAttachmentTool(),
 		mcpDriveSearchTool(),
 		mcpDriveGetTool(),
 		mcpDocsGetTool(),
@@ -27,6 +28,7 @@ func mcpAllTools() []mcpToolSpec {
 		mcpSheetsUpdateRangeTool(),
 		mcpGmailDraftsCreateTool(),
 		mcpDriveDownloadTool(),
+		mcpGmailGetAttachmentTool(),
 		mcpDriveMoveTool(),
 		mcpDriveRenameTool(),
 		mcpCalendarEditTool(),
@@ -174,6 +176,30 @@ func mcpGmailGetThreadTool() mcpToolSpec {
 				args = append(args, "--full")
 			}
 			return append(args, "--", threadID), nil
+		},
+	}
+}
+
+func mcpGmailReadAttachmentTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "gmail_read_attachment",
+		Service:     "gmail",
+		Risk:        mcpRiskRead,
+		Description: "Read a Gmail attachment's content inline as base64 (no file is written). Get message_id and attachment_id from gmail_get_message (format=full exposes attachment IDs in the payload parts). Best for small attachments; large ones are truncated by the server's max-output-bytes cap — use gmail_get_attachment to save those to a file instead.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("message_id", mcp.Description("Gmail message ID"), mcp.Required()),
+			mcp.WithString("attachment_id", mcp.Description("Attachment ID from the message payload parts"), mcp.Required()),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			messageID, err := requireMCPString(req, "message_id")
+			if err != nil {
+				return nil, err
+			}
+			attachmentID, err := requireMCPString(req, "attachment_id")
+			if err != nil {
+				return nil, err
+			}
+			return []string{"gmail", "attachment", "--out", "-", "--", messageID, attachmentID}, nil
 		},
 	}
 }
@@ -551,6 +577,43 @@ func mcpDriveDownloadTool() mcpToolSpec {
 				args = append(args, "--overwrite")
 			}
 			return append(args, "--", fileID), nil
+		},
+	}
+}
+
+func mcpGmailGetAttachmentTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "gmail_get_attachment",
+		Service:     "gmail",
+		Risk:        mcpRiskWrite,
+		Description: "Save a Gmail attachment to a local file on the machine running the server, and return its path. Requires --allow-write. Get message_id and attachment_id from gmail_get_message (format=full). Use gmail_read_attachment instead to get small attachment content inline without writing a file.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("message_id", mcp.Description("Gmail message ID"), mcp.Required()),
+			mcp.WithString("attachment_id", mcp.Description("Attachment ID from the message payload parts"), mcp.Required()),
+			mcp.WithString("out", mcp.Description("Output local file path or directory (default: gogcli config dir)")),
+			mcp.WithString("name", mcp.Description("Filename to use when 'out' is empty or a directory")),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			messageID, err := requireMCPString(req, "message_id")
+			if err != nil {
+				return nil, err
+			}
+			attachmentID, err := requireMCPString(req, "attachment_id")
+			if err != nil {
+				return nil, err
+			}
+			out := strings.TrimSpace(req.GetString("out", ""))
+			if out == "-" {
+				return nil, fmt.Errorf("out=- is not valid here; use gmail_read_attachment for inline content")
+			}
+			args := []string{"gmail", "attachment"}
+			if out != "" {
+				args = append(args, "--out", out)
+			}
+			if name := strings.TrimSpace(req.GetString("name", "")); name != "" {
+				args = append(args, "--name", name)
+			}
+			return append(args, "--", messageID, attachmentID), nil
 		},
 	}
 }
