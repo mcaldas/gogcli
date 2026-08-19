@@ -308,3 +308,25 @@ func httptestServerForAttachment(t *testing.T, data string) *httptest.Server {
 		})
 	}))
 }
+
+func TestAddInlineContent_BoundsEmbeddedCopy(t *testing.T) {
+	// Governs both --inline and `--out -` JSON output: at or under the limit the
+	// content is embedded, above it the caller gets a reason instead.
+	atLimit := map[string]any{}
+	addInlineContent(atLimit, []byte("abcd"), 4)
+	if _, ok := atLimit["contentBase64"]; !ok {
+		t.Fatalf("content withheld at limit: %#v", atLimit)
+	}
+	if _, ok := atLimit["reason"]; ok {
+		t.Fatalf("unexpected reason at limit: %#v", atLimit)
+	}
+
+	over := map[string]any{}
+	addInlineContent(over, []byte("abcde"), 4)
+	if _, ok := over["contentBase64"]; ok {
+		t.Fatalf("content embedded above limit: %#v", over)
+	}
+	if _, ok := over["reason"]; !ok {
+		t.Fatalf("missing reason above limit: %#v", over)
+	}
+}
