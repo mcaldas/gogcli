@@ -33,6 +33,7 @@ type MCPConfig struct {
 type MCPPolicy struct {
 	AllowTools []string `json:"allow_tools"`
 	AllowWrite bool     `json:"allow_write,omitempty"`
+	AllowSend  bool     `json:"allow_send,omitempty"`
 }
 
 var errConfigLockTimeout = errors.New("acquire config lock timeout")
