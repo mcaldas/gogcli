@@ -313,6 +313,38 @@ func mcpPrintTools(output io.Writer, tools []mcpToolSpec) error {
 	return enc.Encode(map[string]any{"tools": items})
 }
 
+// mcpFlagArg maps a tool request field to the CLI flag it populates.
+type mcpFlagArg struct{ field, flag string }
+
+// mcpPositionalArgs builds a child command from optional string and boolean
+// flags followed by one required trailing positional. Most typed tools share
+// this shape; expressing it declaratively keeps them from drifting apart.
+func mcpPositionalArgs(
+	command []string,
+	positional string,
+	stringFlags []mcpFlagArg,
+	boolFlags []mcpFlagArg,
+) func(mcp.CallToolRequest) ([]string, error) {
+	return func(req mcp.CallToolRequest) ([]string, error) {
+		value, err := requireMCPString(req, positional)
+		if err != nil {
+			return nil, err
+		}
+		args := append([]string(nil), command...)
+		for _, f := range stringFlags {
+			if v := strings.TrimSpace(req.GetString(f.field, "")); v != "" {
+				args = append(args, f.flag, v)
+			}
+		}
+		for _, f := range boolFlags {
+			if req.GetBool(f.field, false) {
+				args = append(args, f.flag)
+			}
+		}
+		return append(args, "--", value), nil
+	}
+}
+
 func requireMCPString(req mcp.CallToolRequest, key string) (string, error) {
 	value, err := req.RequireString(key)
 	if err != nil {

@@ -662,23 +662,11 @@ func mcpDriveDownloadTool() mcpToolSpec {
 			mcp.WithString("format", mcp.Description("Export format for Google-native files, e.g. pdf, docx, xlsx, csv")),
 			mcp.WithBoolean("overwrite", mcp.Description("Overwrite an existing output file"), mcp.DefaultBool(false)),
 		},
-		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
-			fileID, err := requireMCPString(req, "file_id")
-			if err != nil {
-				return nil, err
-			}
-			args := []string{"drive", "download"}
-			if out := strings.TrimSpace(req.GetString("out", "")); out != "" {
-				args = append(args, "--out", out)
-			}
-			if format := strings.TrimSpace(req.GetString("format", "")); format != "" {
-				args = append(args, "--format", format)
-			}
-			if req.GetBool("overwrite", false) {
-				args = append(args, "--overwrite")
-			}
-			return append(args, "--", fileID), nil
-		},
+		BuildArgs: mcpPositionalArgs(
+			[]string{"drive", "download"}, "file_id",
+			[]mcpFlagArg{{"out", "--out"}, {"format", "--format"}},
+			[]mcpFlagArg{{"overwrite", "--overwrite"}},
+		),
 	}
 }
 
@@ -819,23 +807,11 @@ func mcpDocsCreateTool() mcpToolSpec {
 			mcp.WithString("markdown_file", mcp.Description("Optional local Markdown file to import as initial content")),
 			mcp.WithBoolean("pageless", mcp.Description("Create in pageless mode"), mcp.DefaultBool(false)),
 		},
-		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
-			title, err := requireMCPString(req, "title")
-			if err != nil {
-				return nil, err
-			}
-			args := []string{"docs", "create"}
-			if parent := strings.TrimSpace(req.GetString("parent", "")); parent != "" {
-				args = append(args, "--parent", parent)
-			}
-			if file := strings.TrimSpace(req.GetString("markdown_file", "")); file != "" {
-				args = append(args, "--file", file)
-			}
-			if req.GetBool("pageless", false) {
-				args = append(args, "--pageless")
-			}
-			return append(args, "--", title), nil
-		},
+		BuildArgs: mcpPositionalArgs(
+			[]string{"docs", "create"}, "title",
+			[]mcpFlagArg{{"parent", "--parent"}, {"markdown_file", "--file"}},
+			[]mcpFlagArg{{"pageless", "--pageless"}},
+		),
 	}
 }
 
