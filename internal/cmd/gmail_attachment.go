@@ -224,13 +224,16 @@ func (c *GmailAttachmentCmd) runStdout(ctx context.Context, flags *RootFlags, me
 	}
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
+		// Bound the embedded copy the same way --inline does: an oversized
+		// attachment reports a reason instead of flooding the caller. Raw byte
+		// output below stays unbounded because the caller owns that sink.
+		payload := map[string]any{
 			"message_id":    messageID,
 			"attachment_id": attachmentID,
 			"bytes":         len(data),
-			"encoding":      "base64",
-			"base64":        base64.StdEncoding.EncodeToString(data),
-		})
+		}
+		addInlineContent(payload, data, c.InlineMaxBytes)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	_, err = stdoutWriter(ctx).Write(data)
 	return err

@@ -188,7 +188,7 @@ func mcpGmailReadAttachmentTool() mcpToolSpec {
 		Name:        "gmail_read_attachment",
 		Service:     "gmail",
 		Risk:        mcpRiskRead,
-		Description: "Read a Gmail attachment's content inline as base64 (no file is written). Get message_id and attachment_id from gmail_get_message (format=full exposes attachment IDs in the payload parts). Best for small attachments; large ones are truncated by the server's max-output-bytes cap — use gmail_get_attachment to save those to a file instead.",
+		Description: "Read a Gmail attachment's content inline as base64 (no file is written). Get message_id and attachment_id from gmail_get_message (format=full exposes attachment IDs in the payload parts). Best for small attachments; content above the inline size limit is withheld with a reason instead of returned — use gmail_get_attachment to save those to a file instead.",
 		Options: []mcp.ToolOption{
 			mcp.WithString("message_id", mcp.Description("Gmail message ID"), mcp.Required()),
 			mcp.WithString("attachment_id", mcp.Description("Attachment ID from the message payload parts"), mcp.Required()),
