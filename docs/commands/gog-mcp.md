@@ -20,8 +20,9 @@ gog mcp [flags]
 | --- | --- | --- | --- |
 | `--access-token` | `string` |  | Use provided access token directly (bypasses stored refresh tokens; token expires in ~1h) |
 | `-a`<br>`--account`<br>`--acct` | `string` |  | Account email, alias, or auto for authenticated Google API commands |
+| `--allow-send` | `bool` |  | Expose high-risk send/create/destructive tools (gmail send, drive upload/mkdir, calendar create, sheets clear). Independent of --allow-write. Tools must also match --allow-tool when that flag is set. |
 | `--allow-tool`<br>`--tool` | `[]string` |  | Tool or service allowlist (default: all read-only tools). Examples: gmail.*,docs_get,sheets |
-| `--allow-write` | `bool` |  | Expose write tools. Write tools must also match --allow-tool when that flag is set. |
+| `--allow-write` | `bool` |  | Expose write tools (edit existing Docs/Sheets). Write tools must also match --allow-tool when that flag is set. |
 | `--client` | `string` |  | OAuth client name (selects stored credentials + token bucket) |
 | `--color` | `string` | auto | Color output: auto\|always\|never |
 | `--disable-commands` | `string` |  | Comma-separated list of disabled commands; dot paths allowed |
