@@ -2,7 +2,7 @@
 
 > Generated from `gog schema --json`. Do not edit this page by hand; run `make docs-commands`.
 
-Download a single attachment
+Download a single attachment (use --out - to stream to stdout: base64 in --json mode, raw bytes otherwise)
 
 ## Usage
 

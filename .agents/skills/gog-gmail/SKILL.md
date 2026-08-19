@@ -29,7 +29,7 @@ gog --readonly --account user@example.com gmail search 'newer_than:7d' --max 10 
 | Command | Purpose |
 | --- | --- |
 | `archive` | Archive messages or explicit threads (remove from inbox) |
-| `attachment` | Download a single attachment |
+| `attachment` | Download a single attachment (use --out - to stream to stdout: base64 in --json mode, raw bytes otherwise) |
 | `autoreply` | Reply once to matching messages |
 | `batch` | Batch operations (permanent delete requires broader Gmail scope; use gmail trash for normal trashing) |
 | `drafts` | Draft operations |

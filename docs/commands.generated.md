@@ -398,7 +398,7 @@ Generated from `gog schema --json`.
       - [`gog forms (form) watch (watches) renew (refresh) <formId> <watchId>`](commands/gog-forms-watch-renew.md) - Renew a watch (extends 7 days)
   - [`gog gmail (mail,email) <command> [flags]`](commands/gog-gmail.md) - Gmail
     - [`gog gmail (mail,email) archive [<messageId> ...] [flags]`](commands/gog-gmail-archive.md) - Archive messages or explicit threads (remove from inbox)
-    - [`gog gmail (mail,email) attachment <messageId> <attachmentId> [flags]`](commands/gog-gmail-attachment.md) - Download a single attachment
+    - [`gog gmail (mail,email) attachment <messageId> <attachmentId> [flags]`](commands/gog-gmail-attachment.md) - Download a single attachment (use --out - to stream to stdout: base64 in --json mode, raw bytes otherwise)
     - [`gog gmail (mail,email) autoreply <query> ... [flags]`](commands/gog-gmail-autoreply.md) - Reply once to matching messages
     - [`gog gmail (mail,email) batch <command>`](commands/gog-gmail-batch.md) - Batch operations (permanent delete requires broader Gmail scope; use gmail trash for normal trashing)
       - [`gog gmail (mail,email) batch delete (rm,del,remove) <messageId> ...`](commands/gog-gmail-batch-delete.md) - Permanently delete messages; requires https://mail.google.com/ OAuth scope (use 'gmail trash' with the default scope)

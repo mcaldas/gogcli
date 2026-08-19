@@ -451,7 +451,7 @@ Generated pages: 728.
       - [gog forms watch renew](gog-forms-watch-renew.md) - Renew a watch (extends 7 days)
   - [gog gmail](gog-gmail.md) - Gmail
     - [gog gmail archive](gog-gmail-archive.md) - Archive messages or explicit threads (remove from inbox)
-    - [gog gmail attachment](gog-gmail-attachment.md) - Download a single attachment
+    - [gog gmail attachment](gog-gmail-attachment.md) - Download a single attachment (use --out - to stream to stdout: base64 in --json mode, raw bytes otherwise)
     - [gog gmail autoreply](gog-gmail-autoreply.md) - Reply once to matching messages
     - [gog gmail batch](gog-gmail-batch.md) - Batch operations (permanent delete requires broader Gmail scope; use gmail trash for normal trashing)
       - [gog gmail batch delete](gog-gmail-batch-delete.md) - Permanently delete messages; requires https://mail.google.com/ OAuth scope (use 'gmail trash' with the default scope)
