@@ -82,6 +82,9 @@ func normalizeMCPPolicy(policy config.MCPPolicy) (config.MCPPolicy, error) {
 	if policy.AllowWrite && !selectorsProvided {
 		return config.MCPPolicy{}, usage("MCP policy allow_write requires an explicit allow_tools list")
 	}
+	if policy.AllowSend && !selectorsProvided {
+		return config.MCPPolicy{}, usage("MCP policy allow_send requires an explicit allow_tools list")
+	}
 	if !selectorsProvided {
 		explicitSelectors = []string{string(mcpRiskRead)}
 	}
@@ -98,15 +101,23 @@ func mcpEnabledToolsWithPolicy(cmd McpCmd, flags *RootFlags, policy config.MCPPo
 	if cmd.AllowWrite && !policy.AllowWrite {
 		return nil, usage("--allow-write cannot widen the configured MCP policy")
 	}
+	if cmd.AllowSend && !policy.AllowSend {
+		return nil, usage("--allow-send cannot widen the configured MCP policy")
+	}
 
 	allowWrite := policy.AllowWrite
+	allowSend := policy.AllowSend
 	if flags != nil && flags.ReadOnly {
 		allowWrite = false
+		allowSend = false
 	}
 	runtimeAllow := splitCommaValues(cmd.AllowTool)
 	tools := make([]mcpToolSpec, 0, len(mcpAllTools()))
 	for _, tool := range mcpAllTools() {
 		if tool.Risk == mcpRiskWrite && !allowWrite {
+			continue
+		}
+		if tool.Risk == mcpRiskSend && !allowSend {
 			continue
 		}
 		if !mcpToolAllowed(tool, policy.AllowTools) {

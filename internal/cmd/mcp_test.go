@@ -112,6 +112,52 @@ func TestMCPPolicyReadOnlyRootHidesConfiguredWrites(t *testing.T) {
 	}
 }
 
+func TestMCPPolicySendTierRequiresConfiguredAllowSend(t *testing.T) {
+	// A configured policy must gate send-risk tools exactly as it gates writes;
+	// otherwise an mcp config block silently bypasses --allow-send.
+	policy, err := normalizeMCPPolicy(config.MCPPolicy{AllowTools: []string{"gmail.*"}})
+	if err != nil {
+		t.Fatalf("normalizeMCPPolicy: %v", err)
+	}
+	tools, err := mcpEnabledToolsWithPolicy(McpCmd{}, &RootFlags{}, policy)
+	if err != nil {
+		t.Fatalf("mcpEnabledToolsWithPolicy: %v", err)
+	}
+	if !hasMCPTool(tools, "gmail_search") || hasMCPTool(tools, "gmail_send") {
+		t.Fatalf("send tool exposed without allow_send: %#v", toolNames(tools))
+	}
+
+	if _, err = mcpEnabledToolsWithPolicy(McpCmd{AllowSend: true}, &RootFlags{}, policy); err == nil ||
+		!strings.Contains(err.Error(), "cannot widen") {
+		t.Fatalf("allow-send widening error = %v", err)
+	}
+
+	sendPolicy, err := normalizeMCPPolicy(config.MCPPolicy{AllowTools: []string{"gmail.*"}, AllowSend: true})
+	if err != nil {
+		t.Fatalf("normalizeMCPPolicy: %v", err)
+	}
+	tools, err = mcpEnabledToolsWithPolicy(McpCmd{}, &RootFlags{}, sendPolicy)
+	if err != nil {
+		t.Fatalf("mcpEnabledToolsWithPolicy: %v", err)
+	}
+	if !hasMCPTool(tools, "gmail_send") {
+		t.Fatalf("configured send tools missing: %#v", toolNames(tools))
+	}
+
+	tools, err = mcpEnabledToolsWithPolicy(McpCmd{}, &RootFlags{ReadOnly: true}, sendPolicy)
+	if err != nil {
+		t.Fatalf("mcpEnabledToolsWithPolicy: %v", err)
+	}
+	if hasMCPTool(tools, "gmail_send") {
+		t.Fatalf("readonly root kept send tools: %#v", toolNames(tools))
+	}
+
+	if _, err = normalizeMCPPolicy(config.MCPPolicy{AllowSend: true}); err == nil ||
+		!strings.Contains(err.Error(), "allow_send requires an explicit allow_tools list") {
+		t.Fatalf("allow_send without selectors error = %v", err)
+	}
+}
+
 func TestMCPPolicyRejectsUnsafeOrUnknownConfig(t *testing.T) {
 	for _, policy := range []config.MCPPolicy{
 		{AllowWrite: true},

@@ -140,7 +140,8 @@ block, behavior is unchanged: all read tools are available, writes require
     "accounts": {
       "personal@example.com": {
         "allow_tools": ["read", "docs.*", "calendar.*"],
-        "allow_write": true
+        "allow_write": true,
+        "allow_send": true
       },
       "work@example.com": {
         "allow_tools": ["read"],
@@ -157,12 +158,14 @@ account selection are resolved, then that resolved account is pinned for every
 MCP child command. Per-account policies require stored account credentials;
 direct access tokens and ADC can use only the global policy because an account
 label does not prove the authenticated principal. An omitted `allow_tools` value defaults to
-`["read"]`; an explicitly empty list is rejected. `allow_write: true` requires
-an explicit tool list so a typo cannot accidentally expose every write tool.
+`["read"]`; an explicitly empty list is rejected. `allow_write: true` and
+`allow_send: true` each require an explicit tool list so a typo cannot
+accidentally expose every write or send tool.
 
 The configured policy is a ceiling. `--allow-tool` can intersect it with a
-smaller runtime set, `--readonly` removes all writes, and `--allow-write` cannot
-widen a read-only policy. Baked safety profiles remain the outer immutable
+smaller runtime set, `--readonly` removes all writes and sends, and neither
+`--allow-write` nor `--allow-send` can widen a policy that does not already
+authorize that tier. Baked safety profiles remain the outer immutable
 ceiling. Unknown configured selectors and attempted write widening fail before
 the MCP server starts. Use `gog mcp --list-tools` with the same account and flags
 to inspect the final registered surface.
