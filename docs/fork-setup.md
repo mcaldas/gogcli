@@ -145,7 +145,7 @@ gog auth tokens import /tmp/you.token
 
 ```bash
 gog auth add you@example.com \
-  --services gmail,calendar,drive,docs,sheets \
+  --services gmail,calendar,drive,docs,sheets,contacts \
   --drive-scope full --gmail-scope full \
   --force-consent --timeout 15m
 ```
@@ -154,6 +154,28 @@ Notes that cost real time:
 
 - **Docs and Sheets need their own service entries.** `drive` alone does not
   enable `docs_create` or `sheets_*`.
+- **A granted scope is not an enabled API — these are two separate switches,
+  and granting the scope tells you nothing about the other one.** Every service
+  above also has to be turned on in the Google Cloud project behind your OAuth
+  client, or the command fails at call time with `<Service> API is not enabled
+  for this OAuth project` (or, for contacts, a `403 insufficientPermissions`
+  that looks exactly like a missing scope). Check before you consent:
+
+  ```bash
+  gcloud services list --enabled --project <your-project-id>
+  ```
+
+  The project is the one that issued `credentials.json`; the digits before the
+  dash in its `client_id` are the project *number*, and
+  `gcloud projects list --filter="projectNumber=<number>"` turns that into the
+  project *id* the console URLs actually accept. Enable what is missing:
+
+  ```bash
+  gcloud services enable docs.googleapis.com sheets.googleapis.com \
+    people.googleapis.com --project <your-project-id>
+  ```
+
+  `contacts` maps to `people.googleapis.com`, not a `contacts` API.
 - `--drive-scope` accepts `full|readonly|file` and `--gmail-scope` accepts
   `full|readonly|send|read-send`, so a narrower grant is possible if you want
   one. For an account the MCP server serves with `--allow-send`, **`read-send`
