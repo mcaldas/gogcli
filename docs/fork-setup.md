@@ -155,7 +155,14 @@ Notes that cost real time:
 - **Docs and Sheets need their own service entries.** `drive` alone does not
   enable `docs_create` or `sheets_*`.
 - `--drive-scope` accepts `full|readonly|file` and `--gmail-scope` accepts
-  `full|readonly`, so a narrower grant is possible if you want one.
+  `full|readonly|send|read-send`, so a narrower grant is possible if you want
+  one. For an account the MCP server serves with `--allow-send`, **`read-send`
+  is the better choice than `full`** — it grants reading and sending without
+  full mailbox modify rights.
+- **A narrowed Gmail or Drive scope disables incremental authorization.** With
+  `--gmail-scope` set to anything but `full`, `auth add` stops merging
+  previously granted scopes, so name every service you want in that one
+  command. `--readonly` cannot be combined with `send` or `read-send`.
 - **Run one flow at a time.** Concurrent `auth add` runs collide on the
   `127.0.0.1` callback port.
 - **Sign in to the right Google account in the browser first.** Consenting as
