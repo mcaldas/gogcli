@@ -20,6 +20,7 @@ gog mcp [flags]
 | --- | --- | --- | --- |
 | `--access-token` | `string` |  | Use provided access token directly (bypasses stored refresh tokens; token expires in ~1h) |
 | `-a`<br>`--account`<br>`--acct` | `string` |  | Account email, alias, or auto for authenticated Google API commands |
+| `--allow-create` | `bool` |  | Allow creating Drive files and folders, creating calendar events, and clearing sheet ranges, in addition to write authorization and tool selection |
 | `--allow-gmail-delete` | `bool` |  | Allow permanent Gmail deletion in addition to write authorization and tool selection; execution also requires --force |
 | `--allow-gmail-send` | `bool` |  | Allow Gmail sending in addition to write authorization and tool selection |
 | `--allow-tool`<br>`--tool` | `[]string` |  | Tool or service allowlist (default: all read-only tools). Examples: gmail.*,docs_get,sheets |
