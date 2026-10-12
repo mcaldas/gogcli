@@ -36,6 +36,7 @@ type MCPPolicy struct {
 	AllowWrite       bool     `json:"allow_write,omitempty"`
 	AllowGmailSend   bool     `json:"allow_gmail_send,omitempty"`
 	AllowGmailDelete bool     `json:"allow_gmail_delete,omitempty"`
+	AllowCreate      bool     `json:"allow_create,omitempty"`
 }
 
 type ConfigStore struct {

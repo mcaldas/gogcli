@@ -21,8 +21,8 @@ func mcpEnabledToolsForRun(ctx context.Context, cmd McpCmd, flags *RootFlags) ([
 		return nil, "", err
 	}
 	if cfg.MCP == nil {
-		if (cmd.AllowGmailSend || cmd.AllowGmailDelete) && !cmd.AllowWrite {
-			return nil, "", usage("--allow-gmail-send and --allow-gmail-delete require --allow-write")
+		if (cmd.AllowGmailSend || cmd.AllowGmailDelete || cmd.AllowCreate) && !cmd.AllowWrite {
+			return nil, "", usage("--allow-gmail-send, --allow-gmail-delete and --allow-create require --allow-write")
 		}
 		return mcpEnabledTools(cmd, flags), "", nil
 	}
@@ -113,6 +113,9 @@ func mcpEnabledToolsWithPolicy(cmd McpCmd, flags *RootFlags, policy config.MCPPo
 	if cmd.AllowGmailDelete && !policy.AllowGmailDelete {
 		return nil, usage("--allow-gmail-delete cannot widen the configured MCP policy")
 	}
+	if cmd.AllowCreate && !policy.AllowCreate {
+		return nil, usage("--allow-create cannot widen the configured MCP policy")
+	}
 	return mcpFilterTools(policy, splitCommaValues(cmd.AllowTool), flags), nil
 }
 
@@ -121,6 +124,7 @@ func mcpEnabledTools(cmd McpCmd, flags *RootFlags) []mcpToolSpec {
 		AllowWrite:       cmd.AllowWrite,
 		AllowGmailSend:   cmd.AllowGmailSend,
 		AllowGmailDelete: cmd.AllowGmailDelete,
+		AllowCreate:      cmd.AllowCreate,
 	}, splitCommaValues(cmd.AllowTool), flags)
 }
 
@@ -141,6 +145,10 @@ func mcpFilterTools(policy config.MCPPolicy, runtimeAllow []string, flags *RootF
 			}
 		case mcpCapabilityGmailDelete:
 			if !policy.AllowWrite || !policy.AllowGmailDelete {
+				continue
+			}
+		case mcpCapabilityCreate:
+			if !policy.AllowWrite || !policy.AllowCreate {
 				continue
 			}
 		default:

@@ -22,6 +22,7 @@ type McpCmd struct {
 	AllowWrite       bool     `name:"allow-write" help:"Expose write tools. Write tools must also match --allow-tool when that flag is set."`
 	AllowGmailSend   bool     `name:"allow-gmail-send" help:"Allow Gmail sending in addition to write authorization and tool selection"`
 	AllowGmailDelete bool     `name:"allow-gmail-delete" help:"Allow permanent Gmail deletion in addition to write authorization and tool selection; execution also requires --force"`
+	AllowCreate      bool     `name:"allow-create" help:"Allow creating Drive files and folders, creating calendar events, and clearing sheet ranges, in addition to write authorization and tool selection"`
 	ListTools        bool     `name:"list-tools" help:"Print enabled MCP tools as JSON and exit"`
 	TimeoutSeconds   int      `name:"timeout-seconds" help:"Per-tool subprocess timeout" default:"60"`
 	MaxOutputBytes   int      `name:"max-output-bytes" help:"Max stdout/stderr bytes captured per tool call" default:"102400"`
@@ -36,6 +37,7 @@ const (
 	mcpRiskWrite             mcpToolRisk       = "write"
 	mcpCapabilityGmailSend   mcpToolCapability = "gmail_send"
 	mcpCapabilityGmailDelete mcpToolCapability = "gmail_delete"
+	mcpCapabilityCreate      mcpToolCapability = "create"
 )
 
 type mcpToolSpec struct {
