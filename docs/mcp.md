@@ -259,6 +259,7 @@ Additional gated write tools:
 | `gmail_send_message`, `gmail_send_draft` | `--allow-gmail-send` or configured `allow_gmail_send`. |
 | `gmail_delete_draft`, `gmail_delete_messages` | `--allow-gmail-delete` or configured `allow_gmail_delete`, plus root `--force` for real deletion. |
 | `drive_upload`, `drive_mkdir`, `calendar_create`, `sheets_clear` | `--allow-create` or configured `allow_create`. |
+| `gmail_create_draft_with_attachments` | `--allow-create` or configured `allow_create`. Reads local files from the server host. |
 
 All message-list mutations take explicit IDs, with at most 1000 per call;
 they do not accept a search query. Search first, review the IDs, then mutate.

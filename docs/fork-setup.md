@@ -17,9 +17,9 @@ byte-identical.
 | --- | --- | --- |
 | on by default | 17 | 11 upstream read + 6 fork read |
 | `--allow-write` | 37 | + 12 upstream write, + 8 fork write |
-| `--allow-create` | 41 | + `drive_upload`, `drive_mkdir`, `calendar_create`, `sheets_clear` |
-| `--allow-gmail-send` | 43 | upstream's `gmail_send_message`, `gmail_send_draft` |
-| `--allow-gmail-delete` | 45 | upstream's permanent-delete tools |
+| `--allow-create` | 42 | + `drive_upload`, `drive_mkdir`, `calendar_create`, `sheets_clear`, `gmail_create_draft_with_attachments` |
+| `--allow-gmail-send` | 44 | upstream's `gmail_send_message`, `gmail_send_draft` |
+| `--allow-gmail-delete` | 46 | upstream's permanent-delete tools |
 
 `--allow-create` is this fork's only gating addition. It rides upstream's
 Capability axis, so `--allow-write` alone cannot upload local file content,
@@ -35,6 +35,16 @@ read-mostly tier:
 - `drive_download` and `gmail_get_attachment` take a caller-chosen local path,
   so `--allow-write` can **write files on the machine running the server**,
   including overwriting one.
+
+### Attachments over MCP
+
+None of upstream's Gmail compose tools accept an attachment, and an MCP client
+cannot work around that: passing bytes inline costs far more context than one
+tool call can carry. `gmail_create_draft_with_attachments` takes local file
+**paths** instead, so the bytes never enter the conversation. It creates a
+draft and never sends, and it exposes `reply_to_message_id`, which has to be
+set at creation — updating a draft afterwards cannot attach it to a thread, and
+doing so silently starts a new one.
 
 See [MCP server](mcp.md) for the full tool list and the config policy.
 

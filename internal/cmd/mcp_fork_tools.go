@@ -49,6 +49,7 @@ func mcpForkTools() []mcpToolSpec {
 		mcpDriveMkdirTool(),
 		mcpCalendarCreateTool(),
 		mcpSheetsClearTool(),
+		mcpGmailDraftWithAttachmentsTool(),
 	}
 }
 
@@ -625,6 +626,83 @@ func mcpSheetsClearTool() mcpToolSpec {
 				return nil, err
 			}
 			return []string{"sheets", "clear", "--", spreadsheetID, rangeSpec}, nil
+		},
+	}
+}
+
+// mcpAttachArgs turns a comma-separated attachment string into repeated
+// --attach flags, trimming blanks.
+func mcpAttachArgs(raw string) []string {
+	var out []string
+	for _, path := range strings.Split(raw, ",") {
+		if path = strings.TrimSpace(path); path != "" {
+			out = append(out, "--attach", path)
+		}
+	}
+	return out
+}
+
+// mcpGmailDraftWithAttachmentsTool fills the one gap upstream's Gmail suite
+// leaves: none of its compose tools accept an attachment, and an MCP client
+// cannot work around that, because passing bytes inline costs far more context
+// than one call can carry. The CLI takes file PATHS instead, so the bytes never
+// enter the conversation.
+//
+// Carries mcpCapabilityCreate rather than plain write: it reads arbitrary local
+// files off the machine running the server and stages them for outbound mail.
+// It only ever creates a draft, so sending stays behind upstream's
+// --allow-gmail-send on a separate tool.
+func mcpGmailDraftWithAttachmentsTool() mcpToolSpec {
+	return mcpToolSpec{
+		Name:        "gmail_create_draft_with_attachments",
+		Service:     "gmail",
+		Risk:        mcpRiskWrite,
+		Capability:  mcpCapabilityCreate,
+		Description: "Create a Gmail draft with file attachments, by local path. Does NOT send. Prefer upstream's gmail_create_draft when there is nothing to attach. Requires --allow-create on the MCP server.",
+		Options: []mcp.ToolOption{
+			mcp.WithString("subject", mcp.Description("Subject line"), mcp.Required()),
+			mcp.WithString("attach", mcp.Description("Attachment local file path(s), comma-separated. Files are read from the machine running the server, not from this conversation."), mcp.Required()),
+			mcp.WithString("body", mcp.Description("Plain-text body. Provide this or body_html (or both)."), mcp.DefaultString("")),
+			mcp.WithString("body_html", mcp.Description("HTML body (optional)"), mcp.DefaultString("")),
+			mcp.WithString("to", mcp.Description("Recipients (comma-separated; optional for a draft)")),
+			mcp.WithString("cc", mcp.Description("CC recipients (comma-separated)")),
+			mcp.WithString("bcc", mcp.Description("BCC recipients (comma-separated)")),
+			mcp.WithString("from", mcp.Description("Send-as address (must be a configured alias of the account)")),
+			mcp.WithString("reply_to_message_id", mcp.Description("Message ID to thread this draft onto. Set it at creation; a later update cannot attach a draft to a thread.")),
+		},
+		BuildArgs: func(req mcp.CallToolRequest) ([]string, error) {
+			subject, err := requireMCPString(req, "subject")
+			if err != nil {
+				return nil, err
+			}
+			attach, err := requireMCPString(req, "attach")
+			if err != nil {
+				return nil, err
+			}
+			body := strings.TrimSpace(req.GetString("body", ""))
+			bodyHTML := strings.TrimSpace(req.GetString("body_html", ""))
+			if body == "" && bodyHTML == "" {
+				return nil, fmt.Errorf("provide body or body_html")
+			}
+			args := []string{"gmail", "drafts", "create", "--subject", subject}
+			if body != "" {
+				args = append(args, "--body", body)
+			}
+			if bodyHTML != "" {
+				args = append(args, "--body-html", bodyHTML)
+			}
+			for _, pair := range [][2]string{
+				{"to", "--to"},
+				{"cc", "--cc"},
+				{"bcc", "--bcc"},
+				{"from", "--from"},
+				{"reply_to_message_id", "--reply-to-message-id"},
+			} {
+				if v := strings.TrimSpace(req.GetString(pair[0], "")); v != "" {
+					args = append(args, pair[1], v)
+				}
+			}
+			return append(args, mcpAttachArgs(attach)...), nil
 		},
 	}
 }

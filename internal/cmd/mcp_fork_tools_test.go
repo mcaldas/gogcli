@@ -13,7 +13,7 @@ import (
 // forkCreateTools are the fork tools gated by mcpCapabilityCreate. Each either
 // creates something durable or destroys data, and calendar_create emails
 // invitations to attendees, so --allow-write alone must never expose them.
-var forkCreateTools = []string{"drive_upload", "drive_mkdir", "calendar_create", "sheets_clear"}
+var forkCreateTools = []string{"drive_upload", "drive_mkdir", "calendar_create", "sheets_clear", "gmail_create_draft_with_attachments"}
 
 func forkToolNames(tools []mcpToolSpec) []string {
 	names := make([]string, 0, len(tools))
@@ -27,7 +27,7 @@ func forkToolNames(tools []mcpToolSpec) []string {
 // fork exists for: no --allow-tool selector, however specific, may substitute
 // for --allow-create. Mirrors TestMCPGmailCapabilityCeilings upstream.
 func TestMCPCreateCapabilityNotGrantedBySelector(t *testing.T) {
-	broad := []string{"drive", "drive.*", "calendar", "sheets", "write", "*", "all"}
+	broad := []string{"drive", "drive.*", "calendar", "sheets", "gmail", "gmail.*", "write", "*", "all"}
 	selectors := make([]string, 0, len(broad)+len(forkCreateTools))
 	selectors = append(selectors, broad...)
 	selectors = append(selectors, forkCreateTools...)
