@@ -23,7 +23,7 @@ func mcpAllTools() []mcpToolSpec {
 		mcpCalendarEventsTool(),
 		mcpDocsWriteTool(),
 		mcpSheetsUpdateRangeTool(),
-	}, mcpGmailMutationTools()...)
+	}, append(mcpGmailMutationTools(), mcpForkTools()...)...)
 }
 
 func mcpGmailSearchTool() mcpToolSpec {

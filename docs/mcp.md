@@ -55,6 +55,13 @@ and draft deletion additionally require `--allow-gmail-delete`; real deletion
 also needs the operator's root `--force` flag. Existing `gmail`, `gmail.*`,
 `write`, and wildcard grants never authorize either capability on their own.
 
+Creating Drive files and folders, creating calendar events, and clearing sheet
+ranges additionally require `--allow-create`. A calendar event emails
+invitations to its attendees and a cleared range is not recoverable, so these
+stay behind their own flag rather than riding on `--allow-write`. As with the
+Gmail capabilities, no `--allow-tool` selector grants `--allow-create` on its
+own, and `--readonly` overrides it.
+
 ## Why this is not `gog_exec`
 
 MCP clients are often LLM-driven. A generic "run this command" tool would expose
@@ -178,7 +185,8 @@ policy, or to the global policy when no account override matches. For example:
 
 This account can create and send drafts, but cannot delete drafts or messages.
 An account override does not inherit global send/delete permissions. Runtime
-`--allow-gmail-send` and `--allow-gmail-delete` cannot widen a configured policy.
+`--allow-gmail-send`, `--allow-gmail-delete` and `--allow-create` cannot widen
+a configured policy.
 An exact send/delete tool selector still needs its corresponding capability.
 
 On upgrade, existing saved policies with `allow_write: true` and `gmail`,
@@ -213,6 +221,12 @@ Read tools:
 | `docs_get` | Read a Google Doc as wrapped text, optionally one tab or all tabs. |
 | `sheets_read_range` | Read values from a Sheets range. |
 | `calendar_events` | List Calendar events. |
+| `calendar_freebusy` | Query free/busy windows across calendars. |
+| `drive_ls` | List one Drive folder's direct children. |
+| `drive_tree` | Walk a Drive folder tree to a bounded depth. |
+| `gmail_read_attachment` | Return attachment content inline, without writing to disk. |
+| `gog_list_commands` | List the CLI surface at a command path, for progressive discovery. |
+| `gog_describe` | Describe one command's flags and arguments as structured data. |
 
 Write tools, hidden unless `--allow-write`:
 
@@ -229,6 +243,14 @@ Write tools, hidden unless `--allow-write`:
 | `gmail_archive_messages` | Remove `INBOX` from explicit messages. |
 | `gmail_trash_messages` | Add `TRASH` and remove `INBOX` from explicit messages. |
 | `gmail_restore_messages` | Remove `TRASH`; this does not add `INBOX`. |
+| `gmail_get_attachment` | Download an attachment to a file and return its path. |
+| `drive_download` | Download or export a Drive file to a local path. |
+| `drive_move` | Move a Drive file to another folder. |
+| `drive_rename` | Rename a Drive file. |
+| `calendar_edit` | Update an existing calendar event. |
+| `docs_create` | Create an empty Google Doc. |
+| `sheets_create` | Create a spreadsheet. |
+| `sheets_append` | Append rows to a sheet. |
 
 Additional gated write tools:
 
@@ -236,6 +258,7 @@ Additional gated write tools:
 | --- | --- |
 | `gmail_send_message`, `gmail_send_draft` | `--allow-gmail-send` or configured `allow_gmail_send`. |
 | `gmail_delete_draft`, `gmail_delete_messages` | `--allow-gmail-delete` or configured `allow_gmail_delete`, plus root `--force` for real deletion. |
+| `drive_upload`, `drive_mkdir`, `calendar_create`, `sheets_clear` | `--allow-create` or configured `allow_create`. |
 
 All message-list mutations take explicit IDs, with at most 1000 per call;
 they do not accept a search query. Search first, review the IDs, then mutate.
