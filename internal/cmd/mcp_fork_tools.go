@@ -4,14 +4,21 @@ package cmd
 //
 // Kept in their own file so upstream's mcp_tools.go and mcp_gmail.go stay
 // byte-identical to origin/main and future rebases touch one line there.
-// Upstream owns Gmail; this file owns the Drive, Calendar, Docs and Sheets
-// surface plus the two read-only discovery tools.
+// Upstream owns the Gmail mailbox surface; this file owns Drive, Calendar,
+// Docs and Sheets, plus two read-only discovery tools and two Gmail attachment
+// tools upstream has no equivalent for.
 //
 // Tiering follows upstream's two axes: Risk gates on --allow-write, and
-// Capability gates on a named flag. The four creating/destructive tools carry
-// mcpCapabilityCreate so --allow-write alone can never create a Drive file or
-// folder, create a calendar event (which emails invitations to attendees), or
-// clear a sheet range.
+// Capability gates on a named flag. The four tools carrying mcpCapabilityCreate
+// are the ones --allow-write must not reach on its own: uploading local file
+// content, creating a folder, creating a calendar event (which emails
+// invitations to its attendees), and clearing a range (not recoverable).
+//
+// Note what the capability does NOT cover: docs_create and sheets_create are
+// plain write, as they were before this fork, so --allow-write can still create
+// a Doc or Sheet in a named folder. drive_download and gmail_get_attachment are
+// also plain write and take a caller-chosen local path, so --allow-write can
+// write files on the host running the server.
 
 import (
 	"fmt"
@@ -60,10 +67,6 @@ func mcpCommandPathArgs(raw string) []string {
 
 // mcpFlagArg maps a tool request field to the CLI flag it populates.
 type mcpFlagArg struct{ field, flag string }
-
-// mcpPositionalArgs builds a child command from optional string and boolean
-// flags followed by one required trailing positional. Most typed tools share
-// this shape; expressing it declaratively keeps them from drifting apart.
 
 // mcpPositionalArgs builds a child command from optional string and boolean
 // flags followed by one required trailing positional. Most typed tools share
@@ -489,7 +492,7 @@ func mcpDriveUploadTool() mcpToolSpec {
 		Service:     "drive",
 		Risk:        mcpRiskWrite,
 		Capability:  mcpCapabilityCreate,
-		Description: "Upload a local file to Google Drive. Requires --allow-send on the MCP server.",
+		Description: "Upload a local file to Google Drive. Requires --allow-create on the MCP server.",
 		Options: []mcp.ToolOption{
 			mcp.WithString("local_path", mcp.Description("Path to the local file to upload"), mcp.Required()),
 			mcp.WithString("name", mcp.Description("Override the uploaded file name")),
@@ -526,7 +529,7 @@ func mcpDriveMkdirTool() mcpToolSpec {
 		Service:     "drive",
 		Risk:        mcpRiskWrite,
 		Capability:  mcpCapabilityCreate,
-		Description: "Create a folder in Google Drive. Requires --allow-send on the MCP server.",
+		Description: "Create a folder in Google Drive. Requires --allow-create on the MCP server.",
 		Options: []mcp.ToolOption{
 			mcp.WithString("name", mcp.Description("Folder name"), mcp.Required()),
 			mcp.WithString("parent", mcp.Description("Parent folder ID")),
@@ -551,7 +554,7 @@ func mcpCalendarCreateTool() mcpToolSpec {
 		Service:     "calendar",
 		Risk:        mcpRiskWrite,
 		Capability:  mcpCapabilityCreate,
-		Description: "Create a Google Calendar event. Requires --allow-send on the MCP server. Inviting attendees notifies them.",
+		Description: "Create a Google Calendar event. Requires --allow-create on the MCP server. Inviting attendees notifies them.",
 		Options: []mcp.ToolOption{
 			mcp.WithString("summary", mcp.Description("Event title/summary"), mcp.Required()),
 			mcp.WithString("from", mcp.Description("Start: RFC3339 timestamp, or date (YYYY-MM-DD) for all-day"), mcp.Required()),
@@ -607,7 +610,7 @@ func mcpSheetsClearTool() mcpToolSpec {
 		Service:     "sheets",
 		Risk:        mcpRiskWrite,
 		Capability:  mcpCapabilityCreate,
-		Description: "Clear values from a Google Sheets range. DESTRUCTIVE (data loss). Requires --allow-send on the MCP server.",
+		Description: "Clear values from a Google Sheets range. DESTRUCTIVE (data loss). Requires --allow-create on the MCP server.",
 		Options: []mcp.ToolOption{
 			mcp.WithString("spreadsheet_id", mcp.Description("Google Sheets spreadsheet ID"), mcp.Required()),
 			mcp.WithString("range", mcp.Description("A1 notation or named range to clear, e.g. Sheet1!A1:B2"), mcp.Required()),

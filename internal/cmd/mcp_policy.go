@@ -88,8 +88,8 @@ func normalizeMCPPolicy(policy config.MCPPolicy) (config.MCPPolicy, error) {
 	if policy.AllowWrite && !selectorsProvided {
 		return config.MCPPolicy{}, usage("MCP policy allow_write requires an explicit allow_tools list")
 	}
-	if (policy.AllowGmailSend || policy.AllowGmailDelete) && !policy.AllowWrite {
-		return config.MCPPolicy{}, usage("MCP policy allow_gmail_send and allow_gmail_delete require allow_write")
+	if (policy.AllowGmailSend || policy.AllowGmailDelete || policy.AllowCreate) && !policy.AllowWrite {
+		return config.MCPPolicy{}, usage("MCP policy allow_gmail_send, allow_gmail_delete and allow_create require allow_write")
 	}
 	if !selectorsProvided {
 		explicitSelectors = []string{string(mcpRiskRead)}

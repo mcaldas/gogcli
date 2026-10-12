@@ -6,11 +6,12 @@ upstream does not have is also what keeps rebases conflict-free.
 
 ## What this fork adds
 
-Branch `feat/mcp-send-tools-v037`, rebased on upstream `v0.37.1`.
+Branch `feat/mcp-fork-tools-v044`, rebased on upstream `v0.44.0`.
 
-Upstream owns Gmail. This fork adds the Drive, Calendar, Docs and Sheets
-surface plus two read-only discovery tools, in `internal/cmd/mcp_fork_tools.go`
-so upstream's own MCP files stay byte-identical.
+Upstream owns the Gmail mailbox surface. This fork adds Drive, Calendar, Docs
+and Sheets, plus two read-only discovery tools and two Gmail attachment tools,
+all in `internal/cmd/mcp_fork_tools.go` so upstream's own MCP files stay
+byte-identical.
 
 | Gate | Tools | What it adds |
 | --- | --- | --- |
@@ -21,9 +22,20 @@ so upstream's own MCP files stay byte-identical.
 | `--allow-gmail-delete` | 45 | upstream's permanent-delete tools |
 
 `--allow-create` is this fork's only gating addition. It rides upstream's
-Capability axis, so `--allow-write` alone can never create a Drive file or
-folder, create a calendar event (which emails invitations to attendees), or
-clear a sheet range — and **no `--allow-tool` selector can substitute for it**.
+Capability axis, so `--allow-write` alone cannot upload local file content,
+create a Drive folder, create a calendar event (which emails invitations to its
+attendees), or clear a range — and **no `--allow-tool` selector can substitute
+for it**.
+
+Be precise about what it does *not* cover, because `--allow-write` is not a
+read-mostly tier:
+
+- `docs_create` and `sheets_create` are plain write, so `--allow-write` can
+  still create a Doc or Sheet in a named folder.
+- `drive_download` and `gmail_get_attachment` take a caller-chosen local path,
+  so `--allow-write` can **write files on the machine running the server**,
+  including overwriting one.
+
 See [MCP server](mcp.md) for the full tool list and the config policy.
 
 ## 0. What you need
@@ -38,7 +50,7 @@ See [MCP server](mcp.md) for the full tool list and the config policy.
 ```bash
 git clone https://github.com/mcaldas/gogcli.git ~/Documents/code/gogcli
 cd ~/Documents/code/gogcli
-git checkout feat/mcp-send-tools-v037
+git checkout feat/mcp-fork-tools-v044
 
 mkdir -p ~/.local/opt/gogcli-openclaw
 go build -o ~/.local/opt/gogcli-openclaw/gog ./cmd/gog

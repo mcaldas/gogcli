@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"reflect"
+	"regexp"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/openclaw/gogcli/internal/config"
@@ -106,6 +109,42 @@ func TestMCPForkToolsRegistered(t *testing.T) {
 	for _, want := range forkCreateTools {
 		if slices.Contains(forkToolNames(readOnly), want) {
 			t.Fatalf("create tool %s exposed on the default read-only surface", want)
+		}
+	}
+}
+
+// TestMCPForkToolDescriptionsNameRealFlags catches a whole class of drift: a
+// tool description telling the model to pass a flag that does not exist. The
+// previous --allow-send tier left exactly this behind when it was removed, and
+// a description is the only gating hint an MCP client ever sees.
+func TestMCPForkToolDescriptionsNameRealFlags(t *testing.T) {
+	valid := map[string]bool{}
+	cmdType := reflect.TypeOf(McpCmd{})
+	for i := range cmdType.NumField() {
+		if name := cmdType.Field(i).Tag.Get("name"); name != "" {
+			valid["--"+name] = true
+		}
+	}
+	rootType := reflect.TypeOf(RootFlags{})
+	for i := range rootType.NumField() {
+		if name := rootType.Field(i).Tag.Get("name"); name != "" {
+			valid["--"+name] = true
+		}
+	}
+	if !valid["--allow-create"] {
+		t.Fatal("precondition failed: --allow-create not found on McpCmd")
+	}
+
+	flagRef := regexp.MustCompile(`--[a-z][a-z0-9-]+`)
+	for _, tool := range mcpForkTools() {
+		for _, ref := range flagRef.FindAllString(tool.Description, -1) {
+			// Flags documented as CLI-only knobs are fine to mention.
+			if strings.HasPrefix(ref, "--inline") {
+				continue
+			}
+			if !valid[ref] {
+				t.Errorf("%s description names %q, which is not a real flag", tool.Name, ref)
+			}
 		}
 	}
 }

@@ -190,8 +190,15 @@ func (c *GmailAttachmentCmd) Run(ctx context.Context, flags *RootFlags) error {
 // addInlineContent embeds the fetched bytes, avoiding a second read of the
 // caller-controlled destination path.
 func addInlineContent(payload map[string]any, data []byte, maxBytes int) {
+	addInlineContentWithOverflow(payload, data, maxBytes, "content written to path only")
+}
+
+// addInlineContentWithOverflow embeds the bytes, or explains the overflow in
+// the caller's own terms. The stdout path writes no file, so it must not be
+// told its content is "on disk" instead.
+func addInlineContentWithOverflow(payload map[string]any, data []byte, maxBytes int, overflow string) {
 	if len(data) > maxBytes {
-		payload["reason"] = fmt.Sprintf("attachment size %d bytes exceeds inline size limit (%d bytes); content written to path only", len(data), maxBytes)
+		payload["reason"] = fmt.Sprintf("attachment size %d bytes exceeds inline size limit (%d bytes); %s", len(data), maxBytes, overflow)
 		return
 	}
 	payload["contentBase64"] = base64.StdEncoding.EncodeToString(data)
@@ -232,7 +239,8 @@ func (c *GmailAttachmentCmd) runStdout(ctx context.Context, flags *RootFlags, me
 			"attachment_id": attachmentID,
 			"bytes":         len(data),
 		}
-		addInlineContent(payload, data, c.InlineMaxBytes)
+		addInlineContentWithOverflow(payload, data, c.InlineMaxBytes,
+			"nothing was written to disk on this path; use a file destination, or raise --inline-max-bytes, to retrieve it")
 		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), payload)
 	}
 	_, err = stdoutWriter(ctx).Write(data)

@@ -485,7 +485,8 @@ If the child command exits non-zero, the MCP result is marked as an error and
 includes the same structured fields with `exit_code` and `stderr`.
 
 Send and permanent-deletion tool listings and results also include
-`"capability": "gmail_send"` or `"capability": "gmail_delete"`. Their risk remains
+`"capability": "gmail_send"`, `"capability": "gmail_delete"` or
+`"capability": "create"`. Their risk remains
 `write`, so existing clients can keep using the read/write classification.
 
 ## Limits and timeouts
